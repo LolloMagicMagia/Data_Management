@@ -27,8 +27,8 @@
 1) PCA e pulizia del Dataset
 2) Addestrare i modelli e vedere le performance
 3) Sporcare il Dataset con valori nulli, outliers, valori inconsistenti fuori dalla distribuzione (Violazione 4 principi di Data Quality)
-  3.1) Riempire una o più feature con valori 100% mancanti o dropparla direttamente
-  3.2) Inconsistenza usando i quartili come valori nuovi
+    1) Riempire una o più feature con valori 100% mancanti o dropparla direttamente
+    2) Inconsistenza usando i quartili come valori nuovi
 4) Addestrare gli stessi modelli sporcati e vedere le performance
 5) Confrontare modelli puliti e sporchi (sottolineando quanto la Data Quality influisca)
 6) Conclusione
