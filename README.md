@@ -1,6 +1,6 @@
 # DataManagement for Machine Learning: Asteroids Dataset
 
-- Biancini Mattia 865966
+- Biancini Mattia 865966 - `dataManagementAsteroids`
 - Gerardi Marco 869138
 - Monti Lorenzo 869960
 
@@ -22,16 +22,6 @@
 * Cartella models: contiene i modelli che salveremo restituiti da train.py in formato pickle.
   
 * Cartella notebooks: è "l'ambiente di esplorazione" dove risiedono tutti notebook .ipynb.
-
-### Struttura del progetto (Tia)
-1) PCA e pulizia del Dataset
-2) Addestrare i modelli e vedere le performance
-3) Sporcare il Dataset con valori nulli, outliers, valori inconsistenti fuori dalla distribuzione (Violazione 4 principi di Data Quality)
-    1) Riempire una o più feature con valori 100% mancanti o dropparla direttamente
-    2) Inconsistenza usando i quartili come valori nuovi
-4) Addestrare gli stessi modelli sporcati e vedere le performance
-5) Confrontare modelli puliti e sporchi (sottolineando quanto la Data Quality influisca)
-6) Conclusione
 
 
 ## Il dataset
@@ -104,3 +94,12 @@ Il dataset riguarda gli asteroidi ed è fornito da NEOWS (Near-Earth Object Web 
 *   **Monitoraggio delle prestazioni:** Continuare a valutare le prestazioni del modello nel tempo e aggiornarlo se necessario.
 *   **Raccolta di feedback:** Raccogliere feedback dagli utenti per migliorare il modello e adattarlo a nuovi dati o scenari.
 
+### Fasi del progetto (Tia)
+1) PCA e pulizia del Dataset
+2) Addestrare i modelli e vedere le performance
+3) Sporcare il Dataset con valori nulli, outliers, valori inconsistenti fuori dalla distribuzione (Violazione 4 principi di Data Quality)
+    1) Riempire una o più feature con valori 100% mancanti o dropparla direttamente
+    2) Inconsistenza usando i quartili come valori nuovi
+4) Addestrare gli stessi modelli sporcati e vedere le performance
+5) Confrontare modelli puliti e sporchi (sottolineando quanto la Data Quality influisca)
+6) Conclusione
