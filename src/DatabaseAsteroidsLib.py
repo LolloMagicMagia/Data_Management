@@ -82,7 +82,7 @@ class AsteroidsLib:
         plt.show()
 
     def box_plot(self, feature):
-        sns.catplot(x=feature, y=self.target_name, data=self.df_analysis, kind="box", aspect=1.5)
+        sns.catplot(x=self.target_name, y= feature, data=self.df_analysis, kind="box", aspect=1.5)
         plt.title("Boxplot per " + feature + " e " + self.target_name)
         plt.show()
 
