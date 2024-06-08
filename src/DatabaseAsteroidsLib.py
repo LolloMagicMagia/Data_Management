@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
 
 class AsteroidsLib:
 
@@ -9,6 +10,7 @@ class AsteroidsLib:
         self.df = pd.read_csv(path)
         self.target_name = 'Hazardous'
         self.features = self.df.columns.tolist()
+        self.all_features = self.features[:]
 
         if self.target_name in self.features:
             self.features.remove(self.target_name)
@@ -17,11 +19,13 @@ class AsteroidsLib:
         self.df_analysis = self.df
         self.df_analysis[self.target_name] = self.df_analysis[self.target_name].astype(int)
 
+    """ PREPARAZIONE DATASET """
     def remove_features(self, features):
         for feature in features:
             if feature in self.features:
                 self.df_analysis = self.df_analysis.drop(feature, axis=1)
                 self.features.remove(feature)
+                self.all_features.remove(feature)
         return self.df_analysis
 
     def remove_duplicates(self):
@@ -29,6 +33,48 @@ class AsteroidsLib:
 
     def remove_correlated_features(self, correlated_features):
         return self.remove_features(correlated_features[1:])
+
+    """ANALISI ESPLORATIVA """
+    # Funzione per normalizzare i dati e creare un boxplot per ogni feature con colori diversi
+    def box_plot_all(self):
+        # Normalizza i dati utilizzando la normalizzazione min-max
+        scaler = MinMaxScaler()
+        normalized_data = scaler.fit_transform(self.df_analysis)
+
+        # Converte i dati normalizzati in un DataFrame
+        normalized_df = pd.DataFrame(normalized_data, columns=self.all_features)
+
+        # Crea il boxplot con colori diversi per ogni feature
+        plt.figure(figsize=(18, 8))
+
+        # Definisci una palette di colori che va dal blu al verde per i boxplot
+        cmap = plt.cm.GnBu
+
+        box_data = plt.boxplot(normalized_df.values, patch_artist=True)
+
+        # Assegna colori che vanno dal blu al verde ai boxplot
+        for i, box in enumerate(box_data['boxes']):
+            box_color = cmap((i + 1) / len(normalized_df.columns))
+            box.set_facecolor(box_color)
+
+        # Imposta il colore dei mediani
+        for median in plt.findobj(match=lambda x: isinstance(x, plt.Line2D) and 'median' in x.get_label()):
+            median.set_color('gray')
+
+        # Crea un elenco separato per i boxplot per utilizzarlo per la legenda
+        box_list = [plt.Rectangle((0, 0), 1, 1, fc=cmap((i + 1) / len(normalized_df.columns))) for i in
+                    range(len(normalized_df.columns))]
+
+        # Aggiungi titolo e label agli assi
+        plt.title('Boxplot per ogni Feature Normalizzata)')
+        plt.xlabel('Feature')
+        plt.ylabel('Valore Normalizzato in [0, 1]')
+        plt.grid(axis='y')
+
+        # Aggiungi una legenda per i colori
+        plt.legend(box_list, normalized_df.columns, loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4)
+
+        plt.show()
 
     # Calcola il numero ottimale di classi secondo il metodo di Freedman-Diaconis
     def freedman_diaconis_bins(self, feature):
@@ -46,9 +92,8 @@ class AsteroidsLib:
 
         return n_bins
 
-    def bar_plot(self, feature):
+    """def bar_plot(self, feature):
 
-        # Definisci i bin per la suddivisione di relative_velocity
         bins = np.linspace(self.df_analysis[feature].min(), self.df_analysis[feature].max(), self.freedman_diaconis_bins(feature))
 
         # Crea una colonna 'Bin' nel DataFrame basata sui bin
@@ -87,12 +132,7 @@ class AsteroidsLib:
         plt.xlabel('Bin di ' + feature)
         plt.ylabel('Frequenza')
         plt.title('Distribuzione di ' + self.target_name + ' in base a ' + feature)
-        plt.show()
-
-    def box_plot(self, feature):
-        sns.catplot(x=self.target_name, y= feature, data=self.df_analysis, kind="box", aspect=1.5)
-        plt.title("Boxplot per " + feature + " e " + self.target_name)
-        plt.show()
+        plt.show()"""
 
     def scatter_plot(self, feature1, feature2):
         fig, ax = plt.subplots(figsize=(10, 4))
