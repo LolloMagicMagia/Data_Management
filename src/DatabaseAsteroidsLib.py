@@ -97,7 +97,7 @@ class AsteroidsLib:
     def scatter_plot(self, feature1, feature2):
         fig, ax = plt.subplots(figsize=(10, 4))
         sns.scatterplot(x=feature1, y=feature2, hue=self.target_name, data=self.df_analysis, palette="Dark2", ax=ax)
-        plt.title("Relazione tra " + a + ", " + b + " e " + c)
+        plt.title("Relazione tra " + feature1 + ", " + feature2 + " e " + self.target_name)
         plt.show()
 
         # Finding the count of outliers based on those instances which are out of iqr
