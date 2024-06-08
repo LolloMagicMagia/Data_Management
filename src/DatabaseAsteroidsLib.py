@@ -35,8 +35,16 @@ class AsteroidsLib:
         data = self.df[feature]
         q75, q25 = np.percentile(data, [75, 25])
         iqr = q75 - q25
-        h = 2 * iqr / (len(data) ** (1 / 3))
-        return int((data.max() - data.min()) / h)
+
+        # Controllo se l'IQR è zero
+        if iqr == 0:
+            # Metodo alternativo: metodo di Sturges
+            n_bins = int(np.ceil(np.log2(len(data)) + 1))
+        else:
+            h = 2 * iqr / (len(data) ** (1 / 3))
+            n_bins = int((data.max() - data.min()) / h)
+
+        return n_bins
 
     def bar_plot(self, feature):
 
