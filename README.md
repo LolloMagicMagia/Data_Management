@@ -2,7 +2,7 @@
 
 - Biancini Mattia 865966 - `dataManagementAsteroids`
 - Gerardi Marco 869138
-- Monti Lorenzo 869960
+- Monti Lorenzo 869960 - `Feature Engineering`
 
 ## Struttura del progetto 
 
