@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import itertools
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
+
 
 
 class AsteroidsLib:
@@ -263,3 +265,28 @@ class AsteroidsLib:
         da = (self.df_analysis[feature] < (Q1 - 1.5 * IQR)) | (self.df_analysis[feature] > (Q3 + 1.5 * IQR))
         print("Outliers")
         print(da.value_counts())
+
+    def confmatrix_plot(self, model, x_data, y_data):
+    
+    # Accepts as argument model object, x data (test or validate), and y data (test or validate).
+    # Return a plot of confusion matrix for predictions on y data.
+        model_pred = model.predict(x_data)
+
+        # Ottenere le classi previste uniche
+        classes = np.unique(np.concatenate((y_data, model_pred)))
+
+        cm = confusion_matrix(y_data, model_pred, labels=classes)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm,
+                                    display_labels=classes)
+
+        disp.plot(values_format='')  # values_format='' suppresses scientific notation
+        plt.show()
+    
+    def metrics_model(self, y_test, y_pred):
+        # Valuta il modello utilizzando i dati di test
+        accuracy_train_test = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        return accuracy_train_test, precision, recall, f1
+
