@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import itertools
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
-
 
 
 class AsteroidsLib:
@@ -20,6 +18,11 @@ class AsteroidsLib:
         self.target_name = 'Hazardous'
         self.features = self.df.columns.tolist()
         self.all_features = self.features[:]
+        self.y = None
+        self.x_train = None
+        self.x_test = None
+        self.y_train = None
+        self.y_test = None
 
         if self.target_name in self.features:
             self.features.remove(self.target_name)
@@ -179,6 +182,16 @@ class AsteroidsLib:
         print('Valori False (= 0): ', count_hazardous_0)
         print('Valori True (= 1): ', count_hazardous_1)
 
+    def correlation_matrix(self):
+        numeric_columns = self.df_analysis.select_dtypes(include=['number'])
+        corr_matrix = numeric_columns.corr()
+        plt.figure(figsize=(32, 15))
+        sns.heatmap(corr_matrix, annot=True, cmap="coolwarm")
+        plt.show()
+
+    def pair_plot(self):
+        sns.pairplot(self.df_analysis)
+
     def scatter_plot(self, feature1, feature2):
         fig, ax = plt.subplots(figsize=(10, 4))
         sns.scatterplot(x=feature1, y=feature2, hue=self.target_name, data=self.df_analysis, palette="Dark2", ax=ax)
@@ -234,8 +247,21 @@ class AsteroidsLib:
         print("Outliers")
         print(da.value_counts())
 
+    """ TRAINING DATA """
+
+    def get_subsets(self, test_size=0.1):
+        """
+        Method to get the Training and Test Set from DataFrame
+        :param test_size: Percentage of DataFrame in Test Sets
+        :return: Calculate x_train, x_test, y_train, y_test for the class
+        """
+        self.y = self.df_analysis[self.target_name]
+
+        self.x_train, self.x_test, self.y_train, self.y_test = \
+            train_test_split(df_model[self.features], df_model[self.target_name], test_size=test_size, stratify=y, random_state=42)
+
     def confmatrix_plot(self, model, x_data, y_data):
-    
+
         # Accepts as argument model object, x data (test or validate), and y data (test or validate).
         # Return a plot of confusion matrix for predictions on y data.
         model_pred = model.predict(x_data)
@@ -245,11 +271,11 @@ class AsteroidsLib:
 
         cm = confusion_matrix(y_data, model_pred, labels=classes)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                    display_labels=classes)
+                                      display_labels=classes)
 
         disp.plot(values_format='')  # values_format='' suppresses scientific notation
         plt.show()
-    
+
     def metrics_model(self, y_test, y_pred):
         # Valuta il modello utilizzando i dati di test
         accuracy_train_test = accuracy_score(y_test, y_pred)
