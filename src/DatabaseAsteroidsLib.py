@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import itertools
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
-
 
 
 class AsteroidsLib:
@@ -64,7 +62,7 @@ class AsteroidsLib:
         :return: A list of features
         """
         features_group = []
-        for feature in self.all_features:
+        for feature in self.features:
             if self.get_feature_type(feature) is AsteroidsLib.CONTINUE_FEATURE and continue_feature:
                 features_group.append(feature)
             if self.get_feature_type(feature) is AsteroidsLib.CATEGORICAL_FEATURE and categorical_feature:
@@ -149,7 +147,7 @@ class AsteroidsLib:
         plt.show()
 
     # Calcola il numero ottimale di classi secondo il metodo di Freedman-Diaconis
-    def freedman_diaconis_bins(self, feature):
+    def freedman_diaconis_bins(self, feature, max=100):
         data = self.df[feature]
         q75, q25 = np.percentile(data, [75, 25])
         iqr = q75 - q25
@@ -162,8 +160,8 @@ class AsteroidsLib:
             h = 2 * iqr / (len(data) ** (1 / 3))
             n_bins = int((data.max() - data.min()) / h)
 
-        if n_bins >= 100:
-            return 100
+        if n_bins >= max:
+            return max
         return n_bins
 
     def pie_chart(self):
@@ -194,17 +192,26 @@ class AsteroidsLib:
         for pair in itertools.combinations(features, 2):
             self.scatter_plot(feature1=pair[0], feature2=pair[1])
 
-    def stacked_column_chart(self, feature1, feature2):
-        # Crea una tabella pivot per ottenere i dati necessari per il grafico a colonne impilate
-        pivot_table = self.df_analysis.pivot_table(index=feature1, columns=feature2, aggfunc='size', fill_value=0)
+    def stacked_column_chart(self, feature):
+        if self.df_analysis[feature].max() - self.df_analysis[feature].min() > 100:
+            bins = self.freedman_diaconis_bins(feature, max=30)
+            # Raggruppiamo i dati in bins
+            df_grouped = self.df_analysis.groupby(
+                [pd.cut(self.df_analysis[feature], bins=bins), self.target_name]).size().reset_index(name='Frequenza')
+        else:
+            df_grouped = self.df_analysis.groupby([feature, self.target_name]).size().reset_index(name='Frequenza')
 
-        # Crea il grafico a colonne impilate
-        pivot_table.plot(kind='bar', stacked=True, figsize=(10, 6))
+            # Rinominiamo la colonna con i bins
+        df_grouped.columns.values[0] = feature
 
-        plt.title(f'Stacked Column Chart per {feature1} e {feature2}')
-        plt.xlabel(feature1)
-        plt.ylabel('Count')
-        plt.legend(title=feature2)
+        plt.figure(figsize=(12, 8))
+        sns.barplot(data=df_grouped, x=feature, y='Frequenza', hue=self.target_name, palette="Set1", dodge=False)
+        plt.title(f'Grouped Bar Chart per {feature} e {self.target_name}')
+        plt.xlabel(feature)
+        plt.ylabel('Frequenza')
+        plt.legend(title=self.target_name, bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=90)
+        plt.tight_layout()
         plt.show()
 
     def stacked_column_chart_all(self, categorical_feature=True):
@@ -213,49 +220,8 @@ class AsteroidsLib:
         else:
             features = self.all_features[:]
 
-        for fea in itertools.combinations(features, 2):
-            self.stacked_column_chart(feature1=pair[0], feature2=pair[1])
-
-    def bar_plot(self, a, b, df1, n_class):
-        # Supponendo che df["relative_velocity"] contenga valori float e df["hazardous"] contenga valori booleani
-
-        # Definisci i bin per la suddivisione di relative_velocity
-        bins = np.linspace(df1[a].min(), df1[a].max(), n_class)
-
-        # Crea una colonna 'Bin' nel DataFrame basata sui bin
-        df1['bin'] = pd.cut(df1[a], bins=bins, labels=False)
-
-        # Raggruppa i dati in base a 'Bin' e 'hazardous', ottenendo la frequenza di True e False in ciascun bin
-        grouped = df1.groupby(['bin', b]).size().unstack(fill_value=0)
-
-        # Creiamo il grafico a barre stackato
-        ax = grouped.plot(kind='bar', stacked=True)
-
-        # Imposta i ticks sull'asse x
-        num_ticks = min(20, len(bins))  # Imposta il numero desiderato di ticks
-        plt.locator_params(axis='x', nbins=num_ticks)
-
-        ax.set_title('Distribuzione di ' + b + ' in base a ' + a)
-        ax.set_xlabel('Bin di ' + a)
-        ax.set_ylabel('Frequenza')
-
-        # Aggiungiamo una legenda
-        handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles[::-1], labels[::-1], title=b)
-
-        df1.drop(["bin"], axis=1)
-
-        plt.show()
-
-    def bar_plot_test(self):
-        n_class_diameter = 100
-
-        for a in self.features:
-            print(a + " e hazardous\n")
-            self.bar_plot(a, "hazardous", self.df_analysis, self.freedman_diaconis_bins(self.df_analysis[a]))
-            print("\n\n")
-
-        self.df_analysis = self.df_analysis.drop('bin', axis=1)
+        for feature in features:
+            self.stacked_column_chart(feature)
 
     def print_outliers(self, feature):
         Q1 = self.df_analysis[feature].quantile(0.25)
@@ -265,28 +231,3 @@ class AsteroidsLib:
         da = (self.df_analysis[feature] < (Q1 - 1.5 * IQR)) | (self.df_analysis[feature] > (Q3 + 1.5 * IQR))
         print("Outliers")
         print(da.value_counts())
-
-    def confmatrix_plot(self, model, x_data, y_data):
-    
-    # Accepts as argument model object, x data (test or validate), and y data (test or validate).
-    # Return a plot of confusion matrix for predictions on y data.
-        model_pred = model.predict(x_data)
-
-        # Ottenere le classi previste uniche
-        classes = np.unique(np.concatenate((y_data, model_pred)))
-
-        cm = confusion_matrix(y_data, model_pred, labels=classes)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                    display_labels=classes)
-
-        disp.plot(values_format='')  # values_format='' suppresses scientific notation
-        plt.show()
-    
-    def metrics_model(self, y_test, y_pred):
-        # Valuta il modello utilizzando i dati di test
-        accuracy_train_test = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
-        return accuracy_train_test, precision, recall, f1
-
