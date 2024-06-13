@@ -4,11 +4,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import MinMaxScaler
 import itertools
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
+    confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 
-
+from IPython.display import display, HTML
 
 class AsteroidsLib:
     CONTINUE_FEATURE = 0
@@ -20,6 +25,12 @@ class AsteroidsLib:
         self.target_name = 'Hazardous'
         self.features = self.df.columns.tolist()
         self.all_features = self.features[:]
+
+        self.corr_matrix = None
+        self.scaled_data = None
+        self.pca = None
+        self.pca_components = 0
+        self.df_optimal = None
         self.y = None
         self.x_train = None
         self.x_test = None
@@ -186,10 +197,35 @@ class AsteroidsLib:
 
     def correlation_matrix(self):
         numeric_columns = self.df_analysis.select_dtypes(include=['number'])
-        corr_matrix = numeric_columns.corr()
+        self.corr_matrix = numeric_columns.corr()
         plt.figure(figsize=(32, 15))
-        sns.heatmap(corr_matrix, annot=True, cmap="coolwarm")
+        sns.heatmap(self.corr_matrix, annot=True, cmap="coolwarm")
         plt.show()
+
+    def correlated_features(self, threshold=0.999):
+        correlated_groups = {}
+
+        for col in self.corr_matrix.columns:
+            group_name = None
+            for group, features in correlated_groups.items():
+                if any(abs(self.corr_matrix.loc[col, feature]) >= threshold for feature in features):
+                    group_name = group
+                    break
+            if group_name is None:
+                group_name = f"Group_{len(correlated_groups) + 1}"
+                correlated_groups[group_name] = []
+            correlated_groups[group_name].append(col)
+
+        correlated_groups_list = [sublist for sublist in correlated_groups.values() if len(sublist) > 1]
+        print('Gruppi di feature correlate:')
+        for groups in correlated_groups_list:
+            print('\t', groups)
+
+        for correlated_features in correlated_groups_list:
+            self.remove_correlated_features(correlated_features)
+
+        return self.df_analysis
+
 
     def pair_plot(self):
         sns.pairplot(self.df_analysis)
@@ -249,8 +285,136 @@ class AsteroidsLib:
         print("Outliers")
         print(da.value_counts())
 
-    """ TRAINING DATA """
+    """ PCA """
+    def scale_data(self):
+        self.scaled_data = StandardScaler().fit_transform(self.df_analysis[self.features])
+        return self.scaled_data
 
+    def pca_init(self):
+        self.scale_data()
+        self.pca = PCA().fit(self.scaled_data)
+        return self.pca
+
+    def explained_variance_plot(self, limit=0.95):
+        explained_variance = self.pca.explained_variance_ratio_
+        cumulative_variance = explained_variance.cumsum()
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, len(explained_variance) + 1), cumulative_variance, marker='o', linestyle='--')
+        plt.xlabel('Numero di Componenti Principali')
+        plt.ylabel('Varianza Spiegata Cumulativa')
+        plt.title('Curva della Varianza Spiegata')
+        plt.axhline(y=limit, color='r', linestyle='--')
+        plt.grid()
+        plt.show()
+
+    def components_to_keep(self, limit=0.95):
+        explained_variance = self.pca.explained_variance_ratio_
+        cumulative_variance = explained_variance.cumsum()
+
+        self.pca_components = next(i for i, cumulative in enumerate(cumulative_variance) if cumulative >= limit) + 1
+        print(f'Numero di componenti principali da conservare: {self.pca_components}')
+        return self.pca_components
+
+    def pca_swarm_plot(self, df=None):
+        if df is None:
+            df = self.df_analysis[:]
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(data=df, x='PC1', y='PC2', hue=self.target_name, palette='Set1')
+        plt.title('Primo e Secondo Componente Principale')
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.legend(title=self.target_name)
+        plt.grid()
+        plt.show()
+
+    def kaiser_components_rule(self):
+        """
+        Filtra le componenti principali con autovalori > 1
+        :return:
+        """
+        components_to_keep = np.sum(self.pca.explained_variance_ > 1)
+        print(f"Componenti principali da mantenere secondo la regola di Kaiser: {components_to_keep}")
+        return components_to_keep
+
+    def pca_pipeline(self):
+        # Creazione Pipeline
+        pipeline = Pipeline([
+            ('pca', self.pca),
+            ('logistic', LogisticRegression())
+        ])
+
+        # Lista per memorizzare i punteggi di validazione incrociata
+        scores = []
+
+        # Testare un range di componenti principali
+        for n_components in range(1, self.scaled_data.shape[1] + 1):
+            pipeline.set_params(pca__n_components=n_components)
+            score = cross_val_score(pipeline, self.scaled_data, self.df_analysis[self.target_name], cv=5).mean()
+            scores.append(score)
+
+        # Grafico dei punteggi di validazione incrociata
+        plt.plot(range(1, self.scaled_data.shape[1] + 1), scores, marker='o')
+        plt.xlabel('Numero di componenti principali')
+        plt.ylabel('Accuratezza di cross-validation')
+        plt.title('Accuratezza di cross-validation vs Numero di componenti principali')
+        plt.axhline(y=0.95, color='r', linestyle='--')
+        plt.show()
+
+        # Numero di componenti principali con il punteggio migliore
+        optimal_components = np.argmax(scores) + 1
+        print(f"Numero ottimale di componenti principali: {optimal_components}")
+        return optimal_components
+
+    def principal_components(self):
+        pcs = self.pca.components_
+        fig = plt.figure(figsize=(6, 5))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlim([-0.5, 0.5])
+        ax.set_ylim([-0.5, 0.5])
+
+        for i, (x, y) in enumerate(zip(pcs[0, :], pcs[1, :])):
+            # plot line between origin and point (x, y)
+            ax.plot([0, x], [0, y], color='k')
+            # display the label of the point
+            ax.text(x, y, self.df_analysis.columns[i], fontsize='5')
+
+    def optimal_features(self, features):
+        pca = PCA(n_components=features)
+        pca.fit(self.df_analysis)
+
+        # Ottieni gli indici delle feature più significative nei primi 'features' componenti principali
+        top_feature_indices = np.argsort(np.abs(pca.components_))[:, ::-1][:, :features].flatten()
+
+        # Seleziona i nomi delle colonne associate alle feature più significative
+        optimal_features = self.df_analysis.columns[top_feature_indices]
+
+        self.df_optimal = self.df_analysis[optimal_features]
+
+        return self.df_optimal
+
+    def pca_component_loadings(self):
+        # Ottieni i componenti principali e i carichi delle feature
+        components = self.pca.components_
+        loadings = pd.DataFrame(components, columns=self.features)
+
+        html_table = "<table><tr><th>Componente Principale</th>"
+        for feature in self.features:
+            html_table += f"<th>{feature}</th>"
+        html_table += "</tr>"
+
+        for i, component in enumerate(loadings.values, start=1):
+            html_table += f"<tr><td>Componente {i}</td>"
+            for loading in component:
+                html_table += f"<td>{loading:.3f}</td>"
+            html_table += "</tr>"
+
+        html_table += "</table>"
+
+        # Stampa la tabella HTML
+        display(HTML(html_table))
+
+    """ TRAINING DATA """
     def get_subsets(self, test_size=0.1):
         """
         Method to get the Training and Test Set from DataFrame
@@ -260,7 +424,8 @@ class AsteroidsLib:
         self.y = self.df_analysis[self.target_name]
 
         self.x_train, self.x_test, self.y_train, self.y_test = \
-            train_test_split(df_model[self.features], df_model[self.target_name], test_size=test_size, stratify=y, random_state=42)
+            train_test_split(df_model[self.features], df_model[self.target_name], test_size=test_size, stratify=y,
+                             random_state=42)
 
     def confmatrix_plot(self, model, x_data, y_data):
 
