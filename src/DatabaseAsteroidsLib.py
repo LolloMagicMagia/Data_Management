@@ -15,6 +15,7 @@ from sklearn.pipeline import Pipeline
 
 from IPython.display import display, HTML
 
+
 class AsteroidsLib:
     CONTINUE_FEATURE = 0
     CATEGORICAL_FEATURE = 1
@@ -144,13 +145,10 @@ class AsteroidsLib:
         else:
             categorical_features = self.get_features_group(categorical_feature=True, count_feature=True, target=target)
 
-        # Crea un DataFrame con le frequenze delle feature categoriche
-        freq_df = pd.DataFrame({feature: self.df_analysis[feature].value_counts() for feature in categorical_features})
-
         # Crea il bar chart
         plt.figure(figsize=(12, 15))
         for i, feature in enumerate(categorical_features):
-            bins = self.freedman_diaconis_bins(feature)
+            bins = self.freedman_diaconis_bins(feature, max=100)
             plt.subplot(len(categorical_features), 1, i + 1)
             plt.hist(self.df_analysis[feature], bins=bins)
             plt.title(feature)
@@ -226,7 +224,6 @@ class AsteroidsLib:
 
         return self.df_analysis
 
-
     def pair_plot(self):
         sns.pairplot(self.df_analysis)
 
@@ -286,6 +283,7 @@ class AsteroidsLib:
         print(da.value_counts())
 
     """ PCA """
+
     def scale_data(self):
         self.scaled_data = StandardScaler().fit_transform(self.df_analysis[self.features])
         return self.scaled_data
@@ -415,6 +413,7 @@ class AsteroidsLib:
         display(HTML(html_table))
 
     """ TRAINING DATA """
+
     def get_subsets(self, test_size=0.1):
         """
         Method to get the Training and Test Set from DataFrame
