@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -40,13 +41,15 @@ def create_outliers(df, outlier_percentage=0.5):
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
 
-        # Numero di outliers da inserire nella colonna
-        n_outliers_col = int(outlier_percentage * len(df_outliers))
+
 
         # Trova gli indici dei valori che non sono già outlier
         non_outlier_indices = df_outliers[
             (df_outliers[col] >= lower_bound) & (df_outliers[col] <= upper_bound)
         ].index
+
+        # Numero di outliers da inserire nella colonna
+        n_outliers_col = int(outlier_percentage * len(non_outlier_indices))
 
         # Scegli casualmente gli indici delle righe da modificare tra quelli non outlier
         outlier_indices = np.random.choice(non_outlier_indices, n_outliers_col, replace=False)
@@ -190,7 +193,7 @@ def drop_column(df):
 # --- Esecuzione ---
 
 df = load_dataset()
-
+"""
 # Creazione dataset sporchi (chiamate alle funzioni)
 df_outliers = create_outliers(df, 0.07)
 df_inconsistents = create_inconsistents(df)
@@ -204,3 +207,42 @@ df_nulls.to_csv('../dirty_datasets/nasa_null_column.csv', index=False)
 df_dropped.to_csv('../dirty_datasets/nasa_dropped_column.csv', index=False)
 
 print("Dataset sporchi creati e salvati con successo!")
+
+"""
+def generate_dirty_datasaet():
+
+    for percentage in range(10, 100, 10):
+        percentage_decimal = percentage / 100
+
+        # Creazione dataset con outliers
+        df_outliers = create_outliers(df, percentage_decimal)
+        df_outliers.to_csv(f'../dirty_datasets/nasa_outliers_{percentage}.csv', index=False)
+
+        # Creazione dataset con valori inconsistenti
+        df_inconsistents = create_inconsistents(df, percentage_decimal)
+        df_inconsistents.to_csv(f'../dirty_datasets/nasa_inconsistents_{percentage}.csv', index=False)
+
+        # Creazione dataset con valori nulli in ogni colonna numerica
+        df_nulls = df.copy()
+        for col in df.select_dtypes(include=[np.number]).columns:
+            df_nulls = create_null_column(df_nulls, percentage_decimal, col)
+        df_nulls.to_csv(f'../dirty_datasets/nasa_null_column_{percentage}.csv', index=False)
+
+        # Creazione dataset con outliers e valori inconsistenti
+        df_outliers_inconsistents = create_outliers(df, percentage_decimal)
+        df_outliers_inconsistents = create_inconsistents(df_outliers_inconsistents, percentage_decimal)
+        df_outliers_inconsistents.to_csv(f'../dirty_datasets/nasa_outliers_inconsistents_{percentage}.csv', index=False)
+
+        # Creazione dataset con outliers e valori nulli
+        df_outliers_nulls = create_outliers(df, percentage_decimal)
+        for col in df_outliers_nulls.select_dtypes(include=[np.number]).columns:
+            df_outliers_nulls = create_null_column(df_outliers_nulls, percentage_decimal, col)
+        df_outliers_nulls.to_csv(f'../dirty_datasets/nasa_outliers_null_{percentage}.csv', index=False)
+
+        # Creazione dataset con valori inconsistenti e valori nulli
+        df_inconsistents_nulls = create_inconsistents(df, percentage_decimal)
+        for col in df_inconsistents_nulls.select_dtypes(include=[np.number]).columns:
+            df_inconsistents_nulls = create_null_column(df_inconsistents_nulls, percentage_decimal, col)
+        df_inconsistents_nulls.to_csv(f'../dirty_datasets/nasa_inconsistents_null_{percentage}.csv', index=False)
+
+    print("Tutti i dataset sporchi sono stati creati e salvati con successo!")
