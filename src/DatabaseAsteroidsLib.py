@@ -396,13 +396,13 @@ class AsteroidsLib:
         components = self.pca.components_
         loadings = pd.DataFrame(components, columns=self.features)
 
-        html_table = "<table><tr><th>Componente Principale</th>"
+        html_table = "<table><tr><th>PC</th>"
         for feature in self.features:
             html_table += f"<th>{feature}</th>"
         html_table += "</tr>"
 
         for i, component in enumerate(loadings.values, start=1):
-            html_table += f"<tr><td>Componente {i}</td>"
+            html_table += f"<tr><td>PC {i}</td>"
             for loading in component:
                 html_table += f"<td>{loading:.3f}</td>"
             html_table += "</tr>"

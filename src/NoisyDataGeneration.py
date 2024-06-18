@@ -3,14 +3,51 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
 
 
 # Carica il dataset (funzione separata per modularità)
-def load_dataset(file_path='../input/nasa.csv'):
-    return pd.read_csv(file_path)
+def load_dataset(file_path='../input/nasaClean.csv'):
+    df = pd.read_csv(file_path)
+    feature_names = df.columns.tolist()
+    target_name = 'Hazardous'
+
+    feature_names.remove(target_name)
+    y = df[target_name]
+    x_train, x_test, y_train, y_test = train_test_split(df[feature_names], df[target_name], test_size=0.1,
+                                                        stratify=y, random_state=42)
+
+    train_data = pd.concat([x_train, y_train], axis=1)  # Concatena le features di addestramento con il target
+    test_data = pd.concat([x_test, y_test], axis=1)
+
+    train_data.to_csv('../dirty_datasets/nasa_train.csv', index=False)
+    test_data.to_csv('../dirty_datasets/nasa_test.csv', index=False)
+
+    return train_data
 
 
-def create_outliers(df, outlier_percentage=0.5):
+# Funzione per creare valori nulli
+def create_null(df, percentage=0.5, columns=[]):  # Aggiungi parametro per la percentuale di null
+    """
+        Riempie una colonna numerica casuale con una percentuale specificata di valori nulli (NaN).
+
+        Args:
+            df (pd.DataFrame): Il DataFrame in cui inserire i valori nulli.
+            percentage (float): La percentuale di valori da impostare a NaN nella colonna scelta.
+            columns (list): Lista di colonne su cui operare
+        Returns:
+            pd.DataFrame: Una copia del DataFrame originale con valori nulli introdotti.
+        """
+
+    n_total_values = df[columns].size
+    n_errors = int(n_total_values * percentage)
+    error_indices = np.unravel_index(np.random.choice(n_total_values, n_errors, replace=False), df[columns].shape)
+    df[columns].values[error_indices] = np.nan
+
+    return df
+
+
+def create_outliers(df, percentage=0.5):
     """
     Introduce outlier plausibili in un DataFrame Pandas.
 
@@ -18,7 +55,7 @@ def create_outliers(df, outlier_percentage=0.5):
 
     Args:
         df (pd.DataFrame): Il DataFrame in cui inserire gli outlier.
-        outlier_percentage (float): La percentuale di valori da trasformare in outlier per ogni colonna numerica.
+        percentage (float): La percentuale di valori da trasformare in outlier per ogni colonna numerica.
 
     Returns:
         pd.DataFrame: Una copia del DataFrame originale con outlier introdotti.
@@ -41,15 +78,13 @@ def create_outliers(df, outlier_percentage=0.5):
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
 
-
-
         # Trova gli indici dei valori che non sono già outlier
         non_outlier_indices = df_outliers[
             (df_outliers[col] >= lower_bound) & (df_outliers[col] <= upper_bound)
-        ].index
+            ].index
 
         # Numero di outliers da inserire nella colonna
-        n_outliers_col = int(outlier_percentage * len(non_outlier_indices))
+        n_outliers_col = int(percentage * len(non_outlier_indices))
 
         # Scegli casualmente gli indici delle righe da modificare tra quelli non outlier
         outlier_indices = np.random.choice(non_outlier_indices, n_outliers_col, replace=False)
@@ -72,10 +107,8 @@ def create_outliers(df, outlier_percentage=0.5):
     return df_outliers
 
 
-
-
 # Funzione per inserire valori inconsistenti
-def create_inconsistents(df, inconsistent_percentage=0.05):
+def create_inconsistents(df, percentage=0.05):
     """
     Introduce valori inconsistenti in un DataFrame Pandas.
 
@@ -85,7 +118,7 @@ def create_inconsistents(df, inconsistent_percentage=0.05):
 
     Args:
         df (pd.DataFrame): Il DataFrame in cui inserire le inconsistenze.
-        inconsistent_percentage (float): La percentuale di valori da rendere inconsistenti per ogni colonna.
+        percentage (float): La percentuale di valori da rendere inconsistenti per ogni colonna.
 
     Returns:
         pd.DataFrame: Una copia del DataFrame originale con inconsistenze introdotte.
@@ -104,7 +137,7 @@ def create_inconsistents(df, inconsistent_percentage=0.05):
         upper_bound = mean_val + 3 * std_dev
 
         # Numero di valori inconsistenti da inserire nella colonna
-        n_inconsistents_col = int(inconsistent_percentage * len(df_inconsistents))
+        n_inconsistents_col = int(percentage * len(df_inconsistents))
 
         # Genera valori inconsistenti casuali fuori dall'intervallo
         inconsistent_values = np.random.choice(
@@ -125,11 +158,10 @@ def create_inconsistents(df, inconsistent_percentage=0.05):
         # Inserisci i valori inconsistenti
         df_inconsistents.loc[inconsistent_row_indices, col] = inconsistent_values
 
-
     # 2. Valori di tipo errato (stringhe casuali)
     object_cols = df_inconsistents.select_dtypes(include=[object]).columns
     for col in object_cols:
-        n_inconsistents_col = int(inconsistent_percentage * len(df_inconsistents))
+        n_inconsistents_col = int(percentage * len(df_inconsistents))
         inconsistent_values = np.random.choice(
             ["valore_errato_1", "valore_errato_2", "valore_errato_3"], n_inconsistents_col
         )
@@ -137,38 +169,6 @@ def create_inconsistents(df, inconsistent_percentage=0.05):
         df_inconsistents.loc[inconsistent_row_indices, col] = inconsistent_values
 
     return df_inconsistents
-
-
-# Funzione per creare valori nulli
-def create_null_column(df, null_percentage=0.5, column_to_null=None):  # Aggiungi parametro per la percentuale di null
-    """
-        Riempie una colonna numerica casuale con una percentuale specificata di valori nulli (NaN).
-
-        Args:
-            df (pd.DataFrame): Il DataFrame in cui inserire i valori nulli.
-            null_percentage (float): La percentuale di valori da impostare a NaN nella colonna scelta.
-
-        Returns:
-            pd.DataFrame: Una copia del DataFrame originale con valori nulli introdotti.
-        """
-
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-
-    if not column_to_null:
-        column_to_null = np.random.choice(numeric_cols)
-
-    df_nulls = df.copy()
-
-    # Calcola il numero di valori nulli da inserire
-    n_nulls = int(null_percentage * len(df_nulls))
-
-    # Scegli casualmente gli indici delle righe da modificare
-    null_indices = np.random.choice(df_nulls.index, n_nulls, replace=False)
-
-    # Inserisci i valori nulli
-    df_nulls.loc[null_indices, column_to_null] = np.nan
-
-    return df_nulls
 
 
 def drop_column(df):
@@ -189,60 +189,96 @@ def drop_column(df):
     return df_dropped
 
 
+def introduce_errors_globally(df, percentage, error_type='all', target_name='Hazardous'):
+    """
+    Crea un dataset sporcato secondo uno tra gli error type disponibili
+
+    :type df: pandas.DataFrame
+    :type percentage: float
+    :type error_type: str
+    :type target_name: string
+    :param df: Il DataFrame da sporcare
+    :param percentage: Percentuale di valori sporcati
+    :param error_type: Tipo di errore che si vuole introdurre
+    :param target_name: Nome della colonna target da escludere dalla corruzione
+    :return: Un nuovo dataset sporcato
+
+    Raises:
+        ValueError: Se error_type non è uno tra 'null', 'outlier', 'inconsistent' o 'all'.
+    """
+    if error_type not in ['null', 'outlier', 'inconsistent', 'all', 'on', 'oi', 'in', 'no', 'io', 'ni']:
+        raise ValueError(
+            "error_type deve essere uno tra 'null', 'outlier', 'inconsistent', 'all', 'on', 'oi', 'in', 'no', 'io', 'ni'")
+
+    df_corrupted = df.copy()
+    columns = df.columns.tolist()
+
+    if target_name is not None and target_name in columns:
+        columns.remove(target_name)
+
+    n_total_values = df[columns].size
+    n_errors = int(n_total_values * percentage)
+
+    if error_type == 'all':
+        df_corrupted = create_null(df_corrupted, percentage=percentage / 3, columns=columns)
+        df_corrupted = create_outliers(df_corrupted, percentage=percentage / 3)
+        df_corrupted = create_inconsistents(df_corrupted, percentage=percentage / 3)
+    elif error_type == 'on' or 'no':
+        df_corrupted = create_null(df_corrupted, percentage=percentage / 2, columns=columns)
+        df_corrupted = create_outliers(df_corrupted, percentage=percentage / 2)
+    elif error_type == 'in' or 'ni':
+        df_corrupted = create_null(df_corrupted, percentage=percentage / 2, columns=columns)
+        df_corrupted = create_inconsistents(df_corrupted, percentage=percentage / 2)
+    elif error_type == 'oi' or 'io':
+        df_corrupted = create_outliers(df_corrupted, percentage=percentage / 2)
+        df_corrupted = create_inconsistents(df_corrupted, percentage=percentage / 2)
+    else:
+        if error_type == 'null':
+            df_corrupted = create_null(df_corrupted, percentage, columns=columns)
+        elif error_type == 'outlier':
+            df_corrupted = create_outliers(df_corrupted, percentage)
+        elif error_type == 'inconsistent':
+            df_corrupted = create_inconsistents(df_corrupted, percentage)
+
+    return df_corrupted
+
+
+def generate_dirty_dataset(df=load_dataset()):
+    os.makedirs('../dirty_datasets/1-null', exist_ok=True)
+    os.makedirs('../dirty_datasets/1-outlier', exist_ok=True)
+    os.makedirs('../dirty_datasets/1-inconsistent', exist_ok=True)
+    os.makedirs('../dirty_datasets/2-outlier_null', exist_ok=True)
+    os.makedirs('../dirty_datasets/2-outlier_inconsistent', exist_ok=True)
+    os.makedirs('../dirty_datasets/2-inconsistent_null', exist_ok=True)
+    os.makedirs('../dirty_datasets/3-all', exist_ok=True)
+
+    for i in range(10, 100, 10):
+        percentage = i / 100
+
+        for error_type in ['null', 'outlier', 'inconsistent', 'all', 'on', 'oi', 'in']:
+            df_corrupted = introduce_errors_globally(df, percentage, error_type)
+
+            if error_type == 'null':
+                df_corrupted.to_csv(f'../dirty_datasets/1-null/nasa_{error_type}_{i}.csv', index=False)
+            elif error_type == 'outlier':
+                df_corrupted.to_csv(f'../dirty_datasets/1-outlier/nasa_{error_type}_{i}.csv', index=False)
+            elif error_type == 'inconsistent':
+                df_corrupted.to_csv(f'../dirty_datasets/1-inconsistent/nasa_{error_type}_{i}.csv', index=False)
+            elif error_type == 'all':
+                df_corrupted.to_csv(f'../dirty_datasets/3-all/nasa_{error_type}_{i}.csv', index=False)
+            elif error_type == 'on':
+                df_corrupted.to_csv(f'../dirty_datasets/2-outlier_null/nasa_outlier_null_{i}.csv', index=False)
+            elif error_type == 'oi':
+                df_corrupted.to_csv(f'../dirty_datasets/2-outlier_inconsistent/nasa_outlier_inconsistent_{i}.csv',
+                                    index=False)
+            elif error_type == 'in':
+                df_corrupted.to_csv(f'../dirty_datasets/2-inconsistent_null/nasa_inconsistent_null_{i}.csv',
+                                    index=False)
+
+    print("Tutti i dataset sporchi sono stati creati e salvati con successo!")
+
 
 # --- Esecuzione ---
 
 df = load_dataset()
-"""
-# Creazione dataset sporchi (chiamate alle funzioni)
-df_outliers = create_outliers(df, 0.07)
-df_inconsistents = create_inconsistents(df)
-df_nulls = create_null_column(df, 1, 'Absolute Magnitude')
-df_dropped = drop_column(df)
-
-# Salvataggio (eventualmente in una funzione separata)
-df_outliers.to_csv('../dirty_datasets/nasa_outliers.csv', index=False)
-df_inconsistents.to_csv('../dirty_datasets/nasa_inconsistents.csv', index=False)
-df_nulls.to_csv('../dirty_datasets/nasa_null_column.csv', index=False)
-df_dropped.to_csv('../dirty_datasets/nasa_dropped_column.csv', index=False)
-
-print("Dataset sporchi creati e salvati con successo!")
-
-"""
-def generate_dirty_datasaet():
-
-    for percentage in range(10, 100, 10):
-        percentage_decimal = percentage / 100
-
-        # Creazione dataset con outliers
-        df_outliers = create_outliers(df, percentage_decimal)
-        df_outliers.to_csv(f'../dirty_datasets/nasa_outliers_{percentage}.csv', index=False)
-
-        # Creazione dataset con valori inconsistenti
-        df_inconsistents = create_inconsistents(df, percentage_decimal)
-        df_inconsistents.to_csv(f'../dirty_datasets/nasa_inconsistents_{percentage}.csv', index=False)
-
-        # Creazione dataset con valori nulli in ogni colonna numerica
-        df_nulls = df.copy()
-        for col in df.select_dtypes(include=[np.number]).columns:
-            df_nulls = create_null_column(df_nulls, percentage_decimal, col)
-        df_nulls.to_csv(f'../dirty_datasets/nasa_null_column_{percentage}.csv', index=False)
-
-        # Creazione dataset con outliers e valori inconsistenti
-        df_outliers_inconsistents = create_outliers(df, percentage_decimal)
-        df_outliers_inconsistents = create_inconsistents(df_outliers_inconsistents, percentage_decimal)
-        df_outliers_inconsistents.to_csv(f'../dirty_datasets/nasa_outliers_inconsistents_{percentage}.csv', index=False)
-
-        # Creazione dataset con outliers e valori nulli
-        df_outliers_nulls = create_outliers(df, percentage_decimal)
-        for col in df_outliers_nulls.select_dtypes(include=[np.number]).columns:
-            df_outliers_nulls = create_null_column(df_outliers_nulls, percentage_decimal, col)
-        df_outliers_nulls.to_csv(f'../dirty_datasets/nasa_outliers_null_{percentage}.csv', index=False)
-
-        # Creazione dataset con valori inconsistenti e valori nulli
-        df_inconsistents_nulls = create_inconsistents(df, percentage_decimal)
-        for col in df_inconsistents_nulls.select_dtypes(include=[np.number]).columns:
-            df_inconsistents_nulls = create_null_column(df_inconsistents_nulls, percentage_decimal, col)
-        df_inconsistents_nulls.to_csv(f'../dirty_datasets/nasa_inconsistents_null_{percentage}.csv', index=False)
-
-    print("Tutti i dataset sporchi sono stati creati e salvati con successo!")
+generate_dirty_dataset(df=df)

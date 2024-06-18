@@ -1,6 +1,5 @@
 import pandas as pd
-from .l
-earn2clean.clean import (CleanData)
+from learn2clean.clean import (CleanData)
 
 def clean_dataset_with_learn2clean(df: pd.DataFrame) -> pd.DataFrame:
     # Creazione dell'oggetto CleanData
