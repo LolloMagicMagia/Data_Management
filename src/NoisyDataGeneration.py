@@ -242,7 +242,7 @@ def introduce_errors_globally(df, percentage, error_type='all', target_name='Haz
 
     return df_corrupted
 
-
+"""
 def generate_dirty_dataset(df=load_dataset()):
     os.makedirs('../dirty_datasets/1-null', exist_ok=True)
     os.makedirs('../dirty_datasets/1-outlier', exist_ok=True)
@@ -277,8 +277,8 @@ def generate_dirty_dataset(df=load_dataset()):
 
     print("Tutti i dataset sporchi sono stati creati e salvati con successo!")
 
-
+"""
 # --- Esecuzione ---
 
-df = load_dataset()
-generate_dirty_dataset(df=df)
+## df = load_dataset()
+## generate_dirty_dataset(df=df)
