@@ -10,17 +10,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
     confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
 
-def ml_albero(df_feature_sporco, df_target_sporco, df_feature, df_target, sporco):
-    if not sporco:
-       # Generazione casuale di esempi da prendere con 42 prende sempre la seq numero 42 cas
-        x_train, x_test, y_train, y_test = train_test_split(df_feature, df_target, test_size=0.2, stratify=df_target, random_state=42)
-    else:
-        # Generazione casuale di esempi da prendere con 42 prende sempre la seq numero 42 cas
-        x_train, x_test, y_train, y_test = train_test_split(df_feature_sporco, df_target_sporco, test_size=0.2, stratify=df_target_sporco, random_state=42)
-        x_train_p, x_test_p, y_train_p, y_test_p = train_test_split(df_feature, df_target, test_size=0.2, stratify=df_target, random_state=42)
-        x_test = x_test_p
-        y_test = y_test_p
-    
+def ml_albero(x_train, x_test, y_train, y_test):    
     scaler = StandardScaler()
     X_train = scaler.fit_transform(x_train)
     X_test = scaler.transform(x_test)
