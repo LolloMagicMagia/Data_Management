@@ -128,5 +128,3 @@ def roc_curve_method(model_tree, X_test, y_test):
     plt.title('ROC Curve')
     plt.legend()
     plt.show()
-
-    # invertire colonna hazardous
