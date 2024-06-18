@@ -7,12 +7,15 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
     confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
+import joblib
 
-def ml_albero(x_train, x_test, y_train, y_test):    
+def ml_albero(x_train, x_test, y_train, y_test, name_modello):    
     scaler = StandardScaler()
     X_train = scaler.fit_transform(x_train)
+    #da mettere fuori dal metodo
     X_test = scaler.transform(x_test)
 
     #ccp_alphas = potatura(X_train, y_train)
@@ -47,6 +50,15 @@ def ml_albero(x_train, x_test, y_train, y_test):
 
     print("ROC curve")
     roc_curve_method(best_tree, X_test, y_test)
+
+    # Sostituisci con il percorso della tua cartella
+    model_dir = 'models'  
+    os.makedirs(model_dir, exist_ok=True)
+    model_filename = os.path.join(model_dir, name_modello + '.pkl')
+
+    joblib.dump(model_tree, model_filename)
+
+    print(f"Modello salvato correttamente come {model_filename}")
 
 
 

@@ -10,11 +10,13 @@ from keras import backend as K
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import joblib
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
     confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
 
 
-def deep_neural_netw(x_train, x_test, y_train, y_test):    
+def deep_neural_netw(x_train, x_test, y_train, y_test, name_modello):    
     scaler = StandardScaler()
     X_train = scaler.fit_transform(x_train)
     X_test = scaler.transform(x_test)
@@ -55,21 +57,54 @@ def deep_neural_netw(x_train, x_test, y_train, y_test):
             metrics=[f1])
 
     # Addestramento del modello
-    model.fit(X_train, y_train, epochs=10, batch_size=32)
+    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose = 0)
 
     # Valutazione del modello
     test_loss, test_f1 = model.evaluate(X_test, y_test)
     predictions = (model.predict(X_test) > 0.5).astype("int32")
+    accuracy_train_test, precision, recall, f1 = metrics_model(y_test, predictions)
 
-    # Calcolo delle metriche di valutazione
-    f1 = f1_score(y_test, predictions)
-    precision = precision_score(y_test, predictions)
-    recall = recall_score(y_test, predictions)
-    accuracy = accuracy_score(y_test, predictions)
-    conf_matrix = confusion_matrix(y_test, predictions)
+    # Stampa le prestazioni del modello
+    print('Accuracy:', accuracy_train_test)
+    print('Precision:', precision)
+    print('Recall:', recall)
+    print('F1-score:', f1)
+    print(classification_report(predictions, y_test))
+    print("\n")
 
-    print("Test f1 Algo:", test_f1)
-    print("F1-score:", f1)
-    print("Precision:", precision)
-    print("Recall:", recall)
-    print("Confusion matrix:\n", conf_matrix)
+    #Matrice di confusione
+    print('Matrice di confusione')
+    confmatrix_plot(model, X_test, y_test)
+    print("\n")
+
+    # Sostituisci con il percorso della tua cartella
+    model_dir = 'models'  
+    os.makedirs(model_dir, exist_ok=True)
+    model_filename = os.path.join(model_dir, name_modello + '.pkl')
+
+    joblib.dump(model, model_filename)
+
+    print(f"Modello salvato correttamente come {model_filename}")
+
+
+def metrics_model(y_test, y_pred):
+    # Valuta il modello utilizzando i dati di test
+    accuracy_train_test = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    return accuracy_train_test, precision, recall, f1
+
+def confmatrix_plot(model, x_data, y_data):
+    # Prevedi le classi con il modello
+    model_pred = model.predict(x_data)
+    model_pred_classes = (model_pred > 0.5).astype("int32").flatten()  # Flatten per trasformarlo in una dimensione
+
+    # Ottenere le classi previste uniche
+    classes = np.unique(np.concatenate((y_data, model_pred_classes)))
+
+    cm = confusion_matrix(y_data, model_pred_classes, labels=classes)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
+
+    disp.plot(values_format='')  # values_format='' sopprime la notazione scientifica
+    plt.show()
