@@ -11,22 +11,22 @@ def load_dataset(file_path='../input/nasa.csv'):
 
 def create_outliers(df, outlier_percentage=0.5):
     """
-        Introduce outlier plausibili in un DataFrame Pandas.
+    Introduce outlier plausibili in un DataFrame Pandas.
 
-        Gli outlier sono valori estremi ma comunque possibili nel contesto dei dati, generati al di fuori del range interquartile (IQR) ma entro limiti ragionevoli.
+    Gli outlier sono valori estremi ma comunque possibili nel contesto dei dati, generati al di fuori del range interquartile (IQR) ma entro limiti ragionevoli.
 
-        Args:
-            df (pd.DataFrame): Il DataFrame in cui inserire gli outlier.
-            outlier_percentage (float): La percentuale di valori da trasformare in outlier per ogni colonna numerica.
+    Args:
+        df (pd.DataFrame): Il DataFrame in cui inserire gli outlier.
+        outlier_percentage (float): La percentuale di valori da trasformare in outlier per ogni colonna numerica.
 
-        Returns:
-            pd.DataFrame: Una copia del DataFrame originale con outlier introdotti.
+    Returns:
+        pd.DataFrame: Una copia del DataFrame originale con outlier introdotti.
 
-        Note:
-            - La funzione opera solo sulle colonne numeriche del DataFrame.
-            - Gli outlier vengono generati utilizzando una distribuzione uniforme all'interno di un intervallo definito in base ai quantili della colonna.
-            - I valori outlier vengono convertiti in interi se la colonna è di tipo int64.
-        """
+    Note:
+        - La funzione opera solo sulle colonne numeriche del DataFrame.
+        - Gli outlier vengono generati utilizzando una distribuzione uniforme all'interno di un intervallo definito in base ai quantili della colonna.
+        - I valori outlier vengono convertiti in interi se la colonna è di tipo int64.
+    """
 
     df_outliers = df.copy()
     numeric_cols = df_outliers.select_dtypes(include=[np.number]).columns
@@ -136,10 +136,8 @@ def create_inconsistents(df, inconsistent_percentage=0.05):
     return df_inconsistents
 
 
-
-
 # Funzione per creare valori nulli
-def create_null_column(df, null_percentage=0.5):  # Aggiungi parametro per la percentuale di null
+def create_null_column(df, null_percentage=0.5, column_to_null=None):  # Aggiungi parametro per la percentuale di null
     """
         Riempie una colonna numerica casuale con una percentuale specificata di valori nulli (NaN).
 
@@ -152,7 +150,9 @@ def create_null_column(df, null_percentage=0.5):  # Aggiungi parametro per la pe
         """
 
     numeric_cols = df.select_dtypes(include=[np.number]).columns
-    column_to_null = np.random.choice(numeric_cols)
+
+    if not column_to_null:
+        column_to_null = np.random.choice(numeric_cols)
 
     df_nulls = df.copy()
 
@@ -194,7 +194,7 @@ df = load_dataset()
 # Creazione dataset sporchi (chiamate alle funzioni)
 df_outliers = create_outliers(df, 0.07)
 df_inconsistents = create_inconsistents(df)
-df_nulls = create_null_column(df)
+df_nulls = create_null_column(df, 1, 'Absolute Magnitude')
 df_dropped = drop_column(df)
 
 # Salvataggio (eventualmente in una funzione separata)
