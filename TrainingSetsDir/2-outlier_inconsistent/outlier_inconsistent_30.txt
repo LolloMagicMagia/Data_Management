@@ -1,0 +1,12 @@
+outlier_inconsistent 30%
+Tree Metrics:
+	Accuracy: 0.9573560767590619
+	Precision: 0.9516129032258065
+	Recall: 0.7763157894736842
+	F1 Score: 0.855072463768116
+	AUC: 0.9260245078344718
+Deep Neural Network Metrics:
+	Accuracy: 0.929637526652452
+	Precision: 0.9215686274509803
+	Recall: 0.618421052631579
+	F1 Score: 0.7401574803149606
