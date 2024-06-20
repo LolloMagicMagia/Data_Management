@@ -12,11 +12,11 @@ from sklearn.metrics import (
     roc_curve, roc_auc_score, make_scorer, auc
 )
 from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model, save_model
 import tensorflow as tf
-import shap
 
+import Shap
 import Metrics
-
 
 def _recall_m(y_true, y_pred):
     true_positives = K.sum(K.round(K.clip(tf.cast(y_true, tf.float32) * y_pred, 0, 1)))
@@ -40,7 +40,7 @@ def _f1(y_true, y_pred):
 
 class DNN:
 
-    def __init__(self, df, X_train, X_test, y_train, y_test, target_name):
+    def __init__(self, df, X_train, X_test, y_train, y_test, target_name, model_name='deep_neural_network'):
         self.df = df
         self.X_train = X_train
         self.X_test = X_test
@@ -55,6 +55,9 @@ class DNN:
 
         if self.target_name in self.features:
             self.features.remove(self.target_name)
+
+        self.model_name = model_name
+        self.shap = None
 
     def deep_neural_netw(self, print_info=True):
         # Preparazione dei dati
@@ -88,8 +91,9 @@ class DNN:
 
         if print_info:
             self.print_metrics(y_pred, fpr_dt, tpr_dt)
+            return
 
-        return accuracy_train_test, precision, recall, f1
+        return self.metrics
 
     def metrics_model(self, y_pred):
         # Valuta il modello utilizzando i dati di test
@@ -114,9 +118,11 @@ class DNN:
 
         model_dir = 'models'
         os.makedirs(model_dir, exist_ok=True)
-        model_filename = os.path.join(model_dir, 'deep_neural_network.pkl')
+        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
 
         joblib.dump(self.model, model_filename)
+
+        save_model(self.model, model_dir + '/' + self.model_name + '.keras')
 
         print("ROC curve")
         # Plotta la curva ROC dei due modelli per comparare le performance
@@ -151,3 +157,6 @@ class DNN:
         auc = roc_auc_score(self.y_test, y_dt_pred_prob)
 
         return auc, fpr_dt, tpr_dt
+
+    def shap_init(self):
+        self.shap = Shap.Shap(load_model("models/" + self.model_name + ".keras"), self.X_test, self.features, tree=False)

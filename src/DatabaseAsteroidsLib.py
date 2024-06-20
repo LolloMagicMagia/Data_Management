@@ -393,20 +393,6 @@ class AsteroidsLib:
             # display the label of the point
             ax.text(x, y, self.df_analysis.columns[i], fontsize='5')
 
-    def optimal_features(self, features):
-        pca = PCA(n_components=features)
-        pca.fit(self.df_analysis)
-
-        # Ottieni gli indici delle feature più significative nei primi 'features' componenti principali
-        top_feature_indices = np.argsort(np.abs(pca.components_))[:, ::-1][:, :features].flatten()
-
-        # Seleziona i nomi delle colonne associate alle feature più significative
-        optimal_features = self.df_analysis.columns[top_feature_indices]
-
-        self.df_optimal = self.df_analysis[optimal_features]
-
-        return self.df_optimal
-
     def pca_component_loadings(self):
         # Ottieni i componenti principali e i carichi delle feature
         components = self.pca.components_
@@ -433,9 +419,10 @@ class AsteroidsLib:
         pca_data = self.pca.transform(self.scaled_data)
 
         # Creare un DataFrame con le componenti principali
-        columns = [f'PC{i + 1}' for i in range(12)]
+        columns = [f'PC{i + 1}' for i in range(len(self.features))]
         pca_df = pd.DataFrame(pca_data, columns=columns)
 
+        pca_df = pca_df.iloc[:, :self.pca_components]
         pca_df[self.target_name] = self.df_analysis[self.target_name].values
 
         return pca_df
@@ -466,17 +453,21 @@ class AsteroidsLib:
             pca_features = pca_df.columns.tolist()
             if self.target_name in pca_features:
                 pca_features.remove(self.target_name)
-            self.tree_pca = DecisionTree.Tree(df=pca_df, target_name=self.target_name, features=pca_features)
+            self.tree_pca = DecisionTree.Tree(df=pca_df, target_name=self.target_name, features=pca_features,
+                                              model_name='decision_tree_pca')
         else:
             self.generate_subsets()
             self.tree = DecisionTree.Tree(X_train=self.X_train, X_test=self.X_test, y_train=self.y_train,
-                                          y_test=self.y_test, target_name=self.target_name, features=self.features)
+                                          y_test=self.y_test, target_name=self.target_name, features=self.features,
+                                          model_name='decision_tree')
 
     def generate_dnn(self):
         self.dnn = DeepNeuralNetwork.DNN(df=pd.read_csv('../input/nasa.csv'), X_train=self.X_train, X_test=self.X_test, y_train=self.y_train,
-                                         y_test=self.y_test, target_name=self.target_name)
+                                         y_test=self.y_test, target_name=self.target_name,
+                                         model_name='deep_neural_network')
         if self.df_analysis is None:
             self.df_analysis = pd.read_csv('../input/nasaClean.csv')
 
         self.dnn_clean = DeepNeuralNetwork.DNN(df=self.df_analysis, X_train=self.X_train, X_test=self.X_test,
-                                               y_train=self.y_train, y_test=self.y_test, target_name=self.target_name)
+                                               y_train=self.y_train, y_test=self.y_test, target_name=self.target_name,
+                                               model_name='deep_neural_network_clean')

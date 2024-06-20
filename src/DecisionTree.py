@@ -8,20 +8,22 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
     confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score
+from tensorflow.keras.models import save_model
 import joblib
-import shap
 
 import Metrics
+import Shap
 
 class Tree:
 
     def __init__(self, df=None, X_train=None, X_test=None, y_train=None, y_test=None, target_name='Hazardous',
-                 features=[]):
+                 features=[], model_name='decision_tree'):
 
         self.metrics = None
         self.model = None
         self.target_name = target_name
         self.features = features
+        self.model_name = model_name
 
         if df is not None:
             self.df = df
@@ -36,6 +38,8 @@ class Tree:
             scaler = StandardScaler()
             self.X_train = scaler.fit_transform(self.X_train)
             self.X_test = scaler.transform(self.X_test)
+
+        self.shap = None
 
     def generate_subsets(self, test_size=0.1):
         """
@@ -73,6 +77,7 @@ class Tree:
 
         if print_info:
             self.print_metrics(best_tree, y_pred, fpr_dt, tpr_dt)
+            return
 
         return self.metrics
 
@@ -96,9 +101,11 @@ class Tree:
 
         model_dir = 'models'
         os.makedirs(model_dir, exist_ok=True)
-        model_filename = os.path.join(model_dir, 'decision_tree.pkl')
+        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
 
         joblib.dump(self.model, model_filename)
+
+        #save_model(self.model, model_dir + '\\' + self.model_name + '.h5')
 
         print("ROC curve")
         # Plotta la curva ROC dei due modelli per comparare le performance
@@ -183,6 +190,5 @@ class Tree:
 
         return auc, fpr_dt, tpr_dt
 
-    def shap(self):
-        explainer = shap.TreeExplainer(self.model)
-        shap_values = explainer.shap_values(self.X_test)
+    def shap_init(self):
+        self.shap = Shap.Shap(joblib.load("models\\" + self.model_name + ".pkl"), self.X_test, self.features, tree=True)
