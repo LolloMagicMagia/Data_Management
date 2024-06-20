@@ -1,19 +1,32 @@
 from enum import bin
 
-import pandas as pd
+import os
+from time import time
+import itertools
+
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import itertools
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
 from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, \
-    confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
-from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, classification_report,
+    confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score, make_scorer, auc
+)
+from sklearn.model_selection import (
+    cross_val_score, train_test_split, GridSearchCV
+)
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 
 from IPython.display import display, HTML
+
+import Metrics
+import DecisionTree
+import DeepNeuralNetwork
 
 
 class AsteroidsLib:
@@ -33,10 +46,13 @@ class AsteroidsLib:
         self.pca_components = 0
         self.df_optimal = None
         self.y = None
-        self.x_train = None
-        self.x_test = None
+        self.X_train = None
+        self.X_test = None
         self.y_train = None
         self.y_test = None
+
+        self.model_tree = None
+        self.tree_metrics = None
 
         if self.target_name in self.features:
             self.features.remove(self.target_name)
@@ -412,40 +428,55 @@ class AsteroidsLib:
         # Stampa la tabella HTML
         display(HTML(html_table))
 
+    def transform_data(self):
+        # Trasformare i dati utilizzando PCA
+        pca_data = self.pca.transform(self.scaled_data)
+
+        # Creare un DataFrame con le componenti principali
+        columns = [f'PC{i + 1}' for i in range(12)]
+        pca_df = pd.DataFrame(pca_data, columns=columns)
+
+        pca_df[self.target_name] = self.df_analysis[self.target_name].values
+
+        return pca_df
+
     """ TRAINING DATA """
 
-    def get_subsets(self, test_size=0.1):
+    def generate_subsets(self, test_size=0.1):
         """
         Method to get the Training and Test Set from DataFrame
         :param test_size: Percentage of DataFrame in Test Sets
         :return: Calculate x_train, x_test, y_train, y_test for the class
         """
-        self.y = self.df_analysis[self.target_name]
+        y = self.df_analysis[self.target_name]
 
-        self.x_train, self.x_test, self.y_train, self.y_test = \
-            train_test_split(df_model[self.features], df_model[self.target_name], test_size=test_size, stratify=y,
+        self.X_train, self.X_test, self.y_train, self.y_test = \
+            train_test_split(self.df_analysis[self.features], self.df_analysis[self.target_name], test_size=test_size,
+                             stratify=y,
                              random_state=42)
 
-    def confmatrix_plot(self, model, x_data, y_data):
+        scaler = StandardScaler()
+        self.X_train = scaler.fit_transform(self.X_train)
+        self.X_test = scaler.transform(self.X_test)
 
-        # Accepts as argument model object, x data (test or validate), and y data (test or validate).
-        # Return a plot of confusion matrix for predictions on y data.
-        model_pred = model.predict(x_data)
+    def generate_tree(self, pca=False):
 
-        # Ottenere le classi previste uniche
-        classes = np.unique(np.concatenate((y_data, model_pred)))
+        if pca:
+            pca_df = self.transform_data()
+            pca_features = pca_df.columns.tolist()
+            if self.target_name in pca_features:
+                pca_features.remove(self.target_name)
+            self.tree_pca = DecisionTree.Tree(df=pca_df, target_name=self.target_name, features=pca_features)
+        else:
+            self.generate_subsets()
+            self.tree = DecisionTree.Tree(X_train=self.X_train, X_test=self.X_test, y_train=self.y_train,
+                                          y_test=self.y_test, target_name=self.target_name, features=self.features)
 
-        cm = confusion_matrix(y_data, model_pred, labels=classes)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                      display_labels=classes)
+    def generate_dnn(self):
+        self.dnn = DeepNeuralNetwork.DNN(df=pd.read_csv('../input/nasa.csv'), X_train=self.X_train, X_test=self.X_test, y_train=self.y_train,
+                                         y_test=self.y_test, target_name=self.target_name)
+        if self.df_analysis is None:
+            self.df_analysis = pd.read_csv('../input/nasaClean.csv')
 
-        disp.plot(values_format='')  # values_format='' suppresses scientific notation
-        plt.show()
-
-    def metrics_model(self, y_test, y_pred):
-        # Valuta il modello utilizzando i dati di test
-        accuracy_train_test = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
-        return accuracy_train_test, precision, recall, f1
+        self.dnn_clean = DeepNeuralNetwork.DNN(df=self.df_analysis, X_train=self.X_train, X_test=self.X_test,
+                                               y_train=self.y_train, y_test=self.y_test, target_name=self.target_name)
