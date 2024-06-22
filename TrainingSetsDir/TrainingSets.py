@@ -1,10 +1,13 @@
 import os
 import sys
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from itertools import combinations
 import DirtyFrame
 import DropFrame
+
+from sklearn.model_selection import train_test_split
 
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.append(src_path)
@@ -12,36 +15,66 @@ sys.path.append(src_path)
 import NoisyDataGeneration as ndg
 
 
-def dirty_train(load=True):
-    target_name = 'Hazardous'
-    datasets = {}
-    trained_set = []
-    testset = None
-    columns = ['Dataset Name', 'Tree Accuracy', 'Tree Precision', 'Tree Recall', 'Tree F1 Score', 'Tree Auc',
-               'DNN Accuracy', 'DNN Precision', 'DNN Recall', 'DNN F1 Score']
+def dirty_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
+
+    features_tree = df_tree.columns.tolist()
+    features_tree.remove(target_name)
+    features_dnn = df_dnn.columns.tolist()
+    features_dnn.remove(target_name)
+
     dataframe = None
-    dir_name = None
 
-    if load:
-        datasets, testset = load_csvs_from_disk()
-    else:
-        datasets, testset = ndg.create_dirty_datasets()
+    y = df_dnn[target_name]
 
-    x_test = testset.copy()
-    x_test = x_test.drop(target_name, axis=1)
+    X_tree_train, X_tree_test, y_tree_train, y_tree_test = \
+        train_test_split(df_tree[features_tree], df_tree[target_name], test_size=0.15,
+                         stratify=y,
+                         random_state=42)
+
+    X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test = \
+        train_test_split(df_dnn[features_dnn], df_dnn[target_name], test_size=0.15,
+                         stratify=y,
+                         random_state=42)
+
     scaler = StandardScaler()
-    x_test = scaler.fit_transform(x_test)
-    y_test = testset[target_name]
+    X_tree_train = scaler.fit_transform(X_tree_train)
+    X_tree_test = scaler.fit_transform(X_tree_test)
 
-    for key, value in datasets.items():
+    datasets_tree = ndg.create_dirty_dataset(pd.DataFrame(X_tree_train, columns=features_tree))
+    datasets_dnn = ndg.create_dirty_dataset(pd.DataFrame(X_dnn_train, columns=features_dnn))
+
+    columns = ['Dataset Name', 'Tree Accuracy', 'Tree Precision', 'Tree Recall', 'Tree F1 Score',
+               'Tree Clean Auc', 'Tree Clean Accuracy', 'Tree Clean Precision', 'Tree Clean Recall',
+               'Tree Clean F1 Score', 'Tree Clean Auc',
+               'DNN Accuracy', 'DNN Precision', 'DNN Recall', 'DNN F1 Score', 'DNN Auc']
+
+    for key, value in datasets_tree.items():
         error_type = key[(key.find('-') + 1):key.find('/')]
-        percentage = key[(key.rfind('_') + 1):key.rfind('.')]
-        trained = DataSetFrame.DataFrame(value, error_type, percentage, x_test, y_test)
-        trained_set.append(trained)
+        percentage = key[(key.rfind('_') + 1):]
+
+        X_tree_train = datasets_tree[key]
+        X_dnn_train = datasets_dnn[key]
+
+        df_clean = pd.DataFrame(X_tree_train, columns=features_tree)
+        df_clean[target_name] = y_tree_train
+
+        df_clean = clean_data(df_clean)
+
+        X_tree_clean = df_clean[features_tree]
+
+        trained = DirtyFrame.DataFrame(error_type, percentage, X_tree_train, X_tree_test, y_tree_train, y_tree_test,
+                                       X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test, X_tree_clean, y_tree_train, df=df_dnn)
 
         dir_name = key[0:key.find('/')]
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
+
+        trained.tree1.shap_init()
+        trained.tree1.shap.print_beeswarm(dir_name + f'/{error_type}_{percentage}_tree')
+        trained.tree2.shap_init()
+        trained.tree2.shap.print_beeswarm(dir_name + f'/{error_type}_{percentage}_clean')
+        trained.dnn.shap_init()
+        trained.dnn.shap.print_beeswarm(dir_name + f'/{error_type}_{percentage}_dnn')
 
         txt_file_path = os.path.join(dir_name, f"{error_type}_{percentage}.txt")
         with open(txt_file_path, 'w') as file:
@@ -52,11 +85,18 @@ def dirty_train(load=True):
             file.write(f'\tRecall: {trained.metrics_tree.recall}\n')
             file.write(f'\tF1 Score: {trained.metrics_tree.f1_score}\n')
             file.write(f'\tAUC: {trained.metrics_tree.auc}\n')
+            file.write('Tree Clean Metrics:\n')
+            file.write(f'\tAccuracy: {trained.metrics_tree_clean.accuracy}\n')
+            file.write(f'\tPrecision: {trained.metrics_tree_clean.precision}\n')
+            file.write(f'\tRecall: {trained.metrics_tree_clean.recall}\n')
+            file.write(f'\tF1 Score: {trained.metrics_tree_clean.f1_score}\n')
+            file.write(f'\tAUC: {trained.metrics_tree_clean.auc}\n')
             file.write('Deep Neural Network Metrics:\n')
             file.write(f'\tAccuracy: {trained.metrics_dnn.accuracy}\n')
             file.write(f'\tPrecision: {trained.metrics_dnn.precision}\n')
             file.write(f'\tRecall: {trained.metrics_dnn.recall}\n')
-            file.write(f'\tF1 Score: {trained.metrics_dnn.f1_score}')
+            file.write(f'\tF1 Score: {trained.metrics_dnn.f1_score}\n')
+            file.write(f'\tAUC: {trained.metrics_dnn.auc}\n')
 
         if dataframe is None:
             data = {
@@ -66,12 +106,18 @@ def dirty_train(load=True):
                 'Tree Recall': [trained.metrics_tree.recall],
                 'Tree F1 Score': [trained.metrics_tree.f1_score],
                 'Tree Auc': [trained.metrics_tree.auc],
+                'Tree Clean Accuracy': [trained.metrics_tree_clean.accuracy],
+                'Tree Clean Precision': [trained.metrics_tree_clean.precision],
+                'Tree Clean Recall': [trained.metrics_tree_clean.recall],
+                'Tree Clean F1 Score': [trained.metrics_tree_clean.f1_score],
+                'Tree Clean Auc': [trained.metrics_tree_clean.auc],
                 'DNN Accuracy': [trained.metrics_dnn.accuracy],
                 'DNN Precision': [trained.metrics_dnn.precision],
                 'DNN Recall': [trained.metrics_dnn.recall],
-                'DNN F1 Score': [trained.metrics_dnn.f1_score]
+                'DNN F1 Score': [trained.metrics_dnn.f1_score],
+                'DNN Auc': [trained.metrics_dnn.auc]
             }
-            dataframe = pd.DataFrame(data=data)
+            dataframe = pd.DataFrame(data=data, columns=columns)
         else:
             data = {
                 'Dataset Name': f"{error_type}{percentage}",
@@ -80,51 +126,79 @@ def dirty_train(load=True):
                 'Tree Recall': trained.metrics_tree.recall,
                 'Tree F1 Score': trained.metrics_tree.f1_score,
                 'Tree Auc': trained.metrics_tree.auc,
+                'Tree Clean Accuracy': trained.metrics_tree_clean.accuracy,
+                'Tree Clean Precision': trained.metrics_tree_clean.precision,
+                'Tree Clean Recall': trained.metrics_tree_clean.recall,
+                'Tree Clean F1 Score': trained.metrics_tree_clean.f1_score,
+                'Tree Clean Auc': trained.metrics_tree_clean.auc,
                 'DNN Accuracy': trained.metrics_dnn.accuracy,
                 'DNN Precision': trained.metrics_dnn.precision,
                 'DNN Recall': trained.metrics_dnn.recall,
-                'DNN F1 Score': trained.metrics_dnn.f1_score
+                'DNN F1 Score': trained.metrics_dnn.f1_score,
+                'DNN Auc': trained.metrics_dnn.auc
             }
             dataframe.loc[len(dataframe)] = data
 
     dataframe.to_csv('../TrainingSetsDir/dirtysets_trained_metrics.csv', index=False)
 
-def drop_train():
-    test = pd.read_csv('../dirty_datasets/nasa_test.csv')
-    train = pd.read_csv('../dirty_datasets/nasa_train.csv')
-    target_feature = 'Hazardous'
-    features = train.columns.tolist()
-    features.remove(target_feature)
+
+def drop_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
+    features_tree = df_tree.columns.to_list()
+    features_tree.remove(target_name)
+    features_dnn = df_dnn.columns.to_list()
+    features_dnn.remove(target_name)
 
     dataframe = None
 
-    columns = ['Dropped Features', 'Tree Accuracy', 'Tree Precision', 'Tree Recall', 'Tree F1 Score', 'Tree Auc',
-               'DNN Accuracy', 'DNN Precision', 'DNN Recall', 'DNN F1 Score']
+    y = df_dnn[target_name]
 
-    features = ['Absolute Magnitude', 'Orbit Uncertainity', 'Est Dia in KM(min)']
-    drop_column = get_columns(features)
+    X_tree_train, X_tree_test, y_tree_train, y_tree_test = \
+        train_test_split(df_tree[features_tree], df_tree[target_name], test_size=0.15,
+                         stratify=y,
+                         random_state=42)
 
+    X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test = \
+        train_test_split(df_dnn[features_dnn], df_dnn[target_name], test_size=0.15,
+                         stratify=y,
+                         random_state=42)
+
+    scaler = StandardScaler()
+    X_tree_train = scaler.fit_transform(X_tree_train)
+    X_tree_test = scaler.fit_transform(X_tree_test)
+    X_dnn_train = scaler.fit_transform(X_dnn_train)
+    X_dnn_test = scaler.fit_transform(X_dnn_test)
+
+    columns = ['Dropped Features', 'Tree Accuracy', 'Tree Precision', 'Tree Recall', 'Tree F1 Score',
+               'Tree Clean Auc', 'DNN Accuracy', 'DNN Precision', 'DNN Recall', 'DNN F1 Score', 'DNN Auc']
+
+    columns_to_drop = ['Absolute Magnitude', 'Minimum Orbit Intersection', 'Est Dia in KM(min)']
+    drop_column = get_columns(columns_to_drop)
+
+    i = 0
     for combo in drop_column:
-        df_test = test.drop(combo, axis=1)
-        df_train = train.drop(combo, axis=1)
+        X_tree_train = drop_features(X_tree_train, features_tree, combo)
+        X_tree_test = drop_features(X_tree_test, features_tree, combo)
+        X_dnn_train = drop_features(X_dnn_train, features_dnn, combo)
+        X_dnn_test = drop_features(X_dnn_test, features_dnn, combo)
 
-        X_train = df_train
-        X_train = X_train.drop(target_feature, axis=1)
-        y_train = df_train[target_feature]
+        trained = DropFrame.DataFrame(X_tree_train, X_tree_test, y_tree_train, y_tree_test,
+                                      X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test, df=df_dnn, i=i,
+                                      features=features_dnn)
 
-        X_test = df_test
-        X_test = X_test.drop(target_feature, axis=1)
-        y_test = df_test[target_feature]
+        i += 1
 
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.fit_transform(X_test)
+        dir_name = 'dropsets'
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
 
-        trained = DropFrame.DataFrame(X_train, y_train, X_test, y_test)
+        trained.tree1.shap_init()
+        trained.tree1.shap.print_beeswarm(dir_name + f'/model_{i}_tree')
+        trained.dnn.shap_init()
+        trained.dnn.shap.print_beeswarm(dir_name + f'/{model}_{i}_dnn')
 
         if dataframe is None:
             data = {
-                'Dropped Features': [combo],
+                'Dropped Features': [f"{error_type}{percentage}"],
                 'Tree Accuracy': [trained.metrics_tree.accuracy],
                 'Tree Precision': [trained.metrics_tree.precision],
                 'Tree Recall': [trained.metrics_tree.recall],
@@ -133,12 +207,13 @@ def drop_train():
                 'DNN Accuracy': [trained.metrics_dnn.accuracy],
                 'DNN Precision': [trained.metrics_dnn.precision],
                 'DNN Recall': [trained.metrics_dnn.recall],
-                'DNN F1 Score': [trained.metrics_dnn.f1_score]
+                'DNN F1 Score': [trained.metrics_dnn.f1_score],
+                'DNN Auc': [trained.metrics_dnn.auc]
             }
-            dataframe = pd.DataFrame(data=data)
+            dataframe = pd.DataFrame(data=data, columns=columns)
         else:
             data = {
-                'Dropped Features': combo,
+                'Dropped Features': f"{error_type}{percentage}",
                 'Tree Accuracy': trained.metrics_tree.accuracy,
                 'Tree Precision': trained.metrics_tree.precision,
                 'Tree Recall': trained.metrics_tree.recall,
@@ -147,13 +222,15 @@ def drop_train():
                 'DNN Accuracy': trained.metrics_dnn.accuracy,
                 'DNN Precision': trained.metrics_dnn.precision,
                 'DNN Recall': trained.metrics_dnn.recall,
-                'DNN F1 Score': trained.metrics_dnn.f1_score
+                'DNN F1 Score': trained.metrics_dnn.f1_score,
+                'DNN Auc': trained.metrics_dnn.auc
             }
             dataframe.loc[len(dataframe)] = data
 
     dataframe.to_csv('../TrainingSetsDir/dropsets_trained_metrics.csv', index=False)
 
-def get_columns(features) :
+
+def get_columns(features):
     columns = []
     for f1 in features:
         for f2 in features:
@@ -171,6 +248,12 @@ def get_columns(features) :
                     columns.append(col)
 
     return columns
+
+def drop_features(X, columns, columns_to_remove):
+    X = pd.DataFrame(data=X, columns=columns)
+    X = X.drop(columns_to_remove, axis=1)
+    return X.values
+
 
 def load_csvs_from_disk(base_dir='../dirty_datasets'):
     """
@@ -205,5 +288,146 @@ def load_csvs_from_disk(base_dir='../dirty_datasets'):
 
     return csv_files, testset
 
-#dirty_train()
-drop_train()
+
+def handle_missing_values(df, method='mean', value=None):
+    """
+    Gestisce i valori nulli nel dataframe.
+
+    Parametri:
+    df (DataFrame): Il dataframe da pulire.
+    method (str): Il metodo per gestire i valori nulli ('drop', 'mean', 'median', 'mode', 'value').
+    value (optional): Il valore con cui sostituire i valori nulli se method è 'value'.
+
+    Ritorna:
+    DataFrame: Il dataframe con i valori nulli gestiti.
+    """
+    if method == 'drop':
+        df = df.dropna()
+    elif method == 'mean':
+        df = df.fillna(df.mean(numeric_only=True))
+    elif method == 'median':
+        df = df.fillna(df.median(numeric_only=True))
+    elif method == 'mode':
+        df = df.fillna(df.mode().iloc[0])
+    elif method == 'value':
+        df = df.fillna(value)
+    return df
+
+
+def handle_outliers(df, method='cap', factor=1.5):
+    """
+    Gestisce gli outliers nel dataframe.
+
+    Parametri:
+    df (DataFrame): Il dataframe da pulire.
+    method (str): Il metodo per gestire gli outliers ('remove', 'cap').
+    factor (float): Il fattore per il calcolo dell'IQR per il metodo 'cap'.
+
+    Ritorna:
+    DataFrame: Il dataframe con gli outliers gestiti.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if method == 'remove':
+        for col in numeric_cols:
+            q1 = df[col].quantile(0.25)
+            q3 = df[col].quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - factor * iqr
+            upper_bound = q3 + factor * iqr
+            df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+    elif method == 'cap':
+        for col in numeric_cols:
+            q1 = df[col].quantile(0.25)
+            q3 = df[col].quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - factor * iqr
+            upper_bound = q3 + factor * iqr
+            df[col] = np.where(df[col] < lower_bound, lower_bound, df[col])
+            df[col] = np.where(df[col] > upper_bound, upper_bound, df[col])
+    return df
+
+
+def handle_inconsistent_values(df, method='median', value=None):
+    """
+    Gestisce i valori inconsistenti nel dataframe.
+
+    Parametri:
+    df (DataFrame): Il dataframe da pulire.
+    method (str): Il metodo per gestire i valori inconsistenti ('drop', 'mean', 'median', 'mode', 'value').
+    value (optional): Il valore con cui sostituire i valori inconsistenti se method è 'value'.
+
+    Ritorna:
+    DataFrame: Il dataframe con i valori inconsistenti gestiti.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if method == 'drop':
+        for col in numeric_cols:
+            df = df[np.isfinite(df[col])]
+    elif method == 'mean':
+        for col in numeric_cols:
+            df[col] = np.where(~np.isfinite(df[col]), df[col].mean(), df[col])
+    elif method == 'median':
+        for col in numeric_cols:
+            df[col] = np.where(~np.isfinite(df[col]), df[col].median(), df[col])
+    elif method == 'mode':
+        for col in numeric_cols:
+            df[col] = np.where(~np.isfinite(df[col]), df[col].mode().iloc[0], df[col])
+    elif method == 'value':
+        for col in numeric_cols:
+            df[col] = np.where(~np.isfinite(df[col]), value, df[col])
+    return df
+
+
+def clean_data(df, missing_method='mean', outlier_method='cap', inconsistent_method='median', value=None):
+    """
+    Pulisce i dati nel file CSV specificato.
+
+    Parametri:
+    df: Il dataframe da pulire
+    missing_method (str): Il metodo per gestire i valori nulli.
+    outlier_method (str): Il metodo per gestire gli outliers.
+    inconsistent_method (str): Il metodo per gestire i valori inconsistenti.
+    value (optional): Il valore con cui sostituire i valori nulli o inconsistenti se i metodi sono 'value'.
+
+    Ritorna:
+    DataFrame: Il dataframe pulito.
+    """
+
+    # Gestisce i valori nulli
+    df = handle_missing_values(df, method=missing_method, value=value)
+
+    # Gestisce gli outliers
+    df = handle_outliers(df, method=outlier_method)
+
+    # Gestisce i valori inconsistenti
+    df = handle_inconsistent_values(df, method=inconsistent_method, value=value)
+
+    return df
+
+
+if __name__ == "__main__":
+
+    target_name = 'Hazardous'
+
+    """Generazione Dataset per Decision Tree"""
+    df_tree = pd.read_csv('../input/nasaClean.csv')
+
+    features_tree = df_tree.columns.to_list()
+    features_tree.remove(target_name)
+
+    """Generazione Dataset per Depp Neural Network"""
+    df_dnn = pd.read_csv('../input/nasa.csv')
+
+    features_dnn = df_dnn.columns.to_list()
+    features_dnn.remove(target_name)
+
+    columns_to_remove = ['Neo Reference ID', 'Name', 'Close Approach Date', 'Orbit Determination Date', 'Hazardous',
+                         'Orbiting Body', 'Equinox']
+
+    for col in columns_to_remove:
+        if col in features_dnn:
+            features_dnn.remove(col)
+            df_dnn = df_dnn.drop(col, axis=1)
+
+    #dirty_train(df_tree=df_tree, df_dnn=df_dnn, target_name=target_name, test_size=0.15)
+    drop_train(df_tree=df_tree, df_dnn=df_dnn, target_name=target_name, test_size=0.15)

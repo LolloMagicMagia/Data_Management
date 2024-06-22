@@ -99,13 +99,7 @@ class Tree:
 
         print("\n")
 
-        model_dir = 'models'
-        os.makedirs(model_dir, exist_ok=True)
-        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
-
-        joblib.dump(self.model, model_filename)
-
-        #save_model(self.model, model_dir + '\\' + self.model_name + '.h5')
+        self._save_model()
 
         print("ROC curve")
         # Plotta la curva ROC dei due modelli per comparare le performance
@@ -190,5 +184,17 @@ class Tree:
 
         return auc, fpr_dt, tpr_dt
 
+    def _save_model(self):
+        model_dir = 'models'
+        os.makedirs(model_dir, exist_ok=True)
+        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
+
+        joblib.dump(self.model, model_filename)
+
     def shap_init(self):
-        self.shap = Shap.Shap(joblib.load("models\\" + self.model_name + ".pkl"), self.X_test, self.features, tree=True)
+
+        if not os.path.exists("models\\" + self.model_name + ".pkl"):
+            self._save_model()
+
+        self.shap = Shap.Shap(joblib.load("models\\" + self.model_name + ".pkl"), self.X_train, self.X_test,
+                              self.features, tree=True)

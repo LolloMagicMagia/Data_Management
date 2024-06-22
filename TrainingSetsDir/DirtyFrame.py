@@ -6,8 +6,8 @@ from sklearn.preprocessing import StandardScaler
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.append(src_path)
 
-import ML_model_tree as tree
-import Deep_neural_netw as neural
+import DecisionTree as tree
+import DeepNeuralNetwork as neural
 
 target_name = 'Hazardous'
 
@@ -19,24 +19,25 @@ class DataFrame:
     metrics_tree = None
     metrics_dnn = None
 
-    def __init__(self, df, error_type, percentage, x_test, y_test):
-        self.df = df
+    def __init__(self, error_type, percentage, X_tree_train, X_tree_test, y_tree_train, y_tree_test,
+                 X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test, x_tree_clean, y_tree_clean, df):
         self.error_type = error_type
         self.percentage = percentage
 
-        X_train = df.copy()
-        X_train = df.drop(target_name, axis=1)
-        y_train = df[target_name]
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
+        self.tree1 = tree.Tree(df=None, X_train=X_tree_train, X_test=X_tree_test, y_train=y_tree_train,
+                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree', features=X_tree_train.columns.to_list())
+        self.metrics_tree = self.tree1.decision_tree_training(False)
 
-        accuracy, precision, recall, f1_score, auc = tree.ml_albero(X_train, x_test, y_train, y_test, name_modello='',
-                                                                    print_info=False)
-        self.metrics_tree = Metrics(accuracy, precision, recall, f1_score, auc)
+        self.tree2 = tree.Tree(df=None, X_train=x_tree_clean, X_test=X_tree_test, y_train=y_tree_clean,
+                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree_clean', features=x_tree_clean.columns.to_list())
+        self.metrics_tree_clean = self.tree2.decision_tree_training(False)
 
-        accuracy, precision, recall, f1_score = neural.deep_neural_netw(X_train, x_test, y_train, y_test,
-                                                                        name_modello='', print_info=False)
-        self.metrics_dnn = Metrics(accuracy, precision, recall, f1_score, 0)
+        self.dnn = neural.DNN(df=df, X_train=X_dnn_train, X_test=X_dnn_test, y_train=y_dnn_train,
+                         y_test=y_dnn_test, model_name=f'{error_type}_{percentage}_dnn', target_name='Hazardous')
+        self.metrics_dnn = self.dnn.deep_neural_netw(False)
+
+
+
 
 
 class Metrics:

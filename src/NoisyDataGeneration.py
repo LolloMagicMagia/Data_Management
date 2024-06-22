@@ -242,7 +242,7 @@ def introduce_errors_globally(df, percentage, error_type='all', target_name='Haz
 
     return df_corrupted
 
-"""
+
 def generate_dirty_dataset(df=load_dataset()):
     os.makedirs('../dirty_datasets/1-null', exist_ok=True)
     os.makedirs('../dirty_datasets/1-outlier', exist_ok=True)
@@ -277,8 +277,29 @@ def generate_dirty_dataset(df=load_dataset()):
 
     print("Tutti i dataset sporchi sono stati creati e salvati con successo!")
 
-"""
-# --- Esecuzione ---
+def create_dirty_dataset(df=load_dataset()):
 
-## df = load_dataset()
-## generate_dirty_dataset(df=df)
+    dfs = {}
+
+    for i in range(10, 100, 10):
+        percentage = i / 100
+
+        for error_type in ['null', 'outlier', 'inconsistent', 'all', 'on', 'oi', 'in']:
+            df_corrupted = introduce_errors_globally(df, percentage, error_type)
+
+            if error_type == 'null':
+                dfs[f'1-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'outlier':
+                dfs[f'1-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'inconsistent':
+                dfs[f'1-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'all':
+                dfs[f'3-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'on':
+                dfs[f'2-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'oi':
+                dfs[f'2-{error_type}/{error_type}_{i}'] = df_corrupted
+            elif error_type == 'in':
+                dfs[f'2-{error_type}/{error_type}_{i}'] = df_corrupted
+
+    return dfs

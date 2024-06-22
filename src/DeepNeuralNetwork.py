@@ -12,7 +12,6 @@ from sklearn.metrics import (
     roc_curve, roc_auc_score, make_scorer, auc
 )
 from tensorflow.keras import backend as K
-from tensorflow.keras.models import load_model, save_model
 import tensorflow as tf
 
 import Shap
@@ -49,15 +48,20 @@ class DNN:
         self.target_name = target_name
         self.features = df.columns.tolist()
 
-        scaler = StandardScaler()
-        self.X_train = scaler.fit_transform(self.X_train)
-        self.X_test = scaler.transform(self.X_test)
-
         if self.target_name in self.features:
             self.features.remove(self.target_name)
 
         self.model_name = model_name
         self.shap = None
+
+        columns_to_remove = ['Neo Reference ID', 'Name', 'Close Approach Date', 'Orbit Determination Date', 'Hazardous',
+                             'Orbiting Body', 'Equinox']
+
+        for col in columns_to_remove:
+            if col in self.features:
+                self.features.remove(col)
+
+
 
     def deep_neural_netw(self, print_info=True):
         # Preparazione dei dati
@@ -116,13 +120,7 @@ class DNN:
 
         print("\n")
 
-        model_dir = 'models'
-        os.makedirs(model_dir, exist_ok=True)
-        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
-
-        joblib.dump(self.model, model_filename)
-
-        save_model(self.model, model_dir + '/' + self.model_name + '.keras')
+        self._save_model()
 
         print("ROC curve")
         # Plotta la curva ROC dei due modelli per comparare le performance
@@ -158,5 +156,17 @@ class DNN:
 
         return auc, fpr_dt, tpr_dt
 
+    def _save_model(self):
+        model_dir = 'models'
+        os.makedirs(model_dir, exist_ok=True)
+        model_filename = os.path.join(model_dir, self.model_name + '.pkl')
+
+        joblib.dump(self.model, model_filename)
+
     def shap_init(self):
-        self.shap = Shap.Shap(load_model("models/" + self.model_name + ".keras"), self.X_test, self.features, tree=False)
+
+        if not os.path.exists("models\\" + self.model_name + ".pkl"):
+            self._save_model()
+
+        self.shap = Shap.Shap(joblib.load("models/" + self.model_name + ".pkl"), self.X_train, self.X_test,
+                              self.features, tree=False)
