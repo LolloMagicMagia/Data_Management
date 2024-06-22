@@ -163,10 +163,10 @@ def drop_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
                          random_state=42)
 
     scaler = StandardScaler()
-    X_tree_train = scaler.fit_transform(X_tree_train)
-    X_tree_test = scaler.fit_transform(X_tree_test)
-    X_dnn_train = scaler.fit_transform(X_dnn_train)
-    X_dnn_test = scaler.fit_transform(X_dnn_test)
+    X_tree_train_base = scaler.fit_transform(X_tree_train)
+    X_tree_test_base = scaler.fit_transform(X_tree_test)
+    X_dnn_train_base = scaler.fit_transform(X_dnn_train)
+    X_dnn_test_base = scaler.fit_transform(X_dnn_test)
 
     columns = ['Dropped Features', 'Tree Accuracy', 'Tree Precision', 'Tree Recall', 'Tree F1 Score',
                'Tree Clean Auc', 'DNN Accuracy', 'DNN Precision', 'DNN Recall', 'DNN F1 Score', 'DNN Auc']
@@ -176,14 +176,22 @@ def drop_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
 
     i = 0
     for combo in drop_column:
-        X_tree_train = drop_features(X_tree_train, features_tree, combo)
-        X_tree_test = drop_features(X_tree_test, features_tree, combo)
-        X_dnn_train = drop_features(X_dnn_train, features_dnn, combo)
-        X_dnn_test = drop_features(X_dnn_test, features_dnn, combo)
+        X_tree_train = drop_features(X_tree_train_base, features_tree[:], combo)
+        X_tree_test = drop_features(X_tree_test_base, features_tree[:], combo)
+        X_dnn_train = drop_features(X_dnn_train_base, features_dnn[:], combo)
+        X_dnn_test = drop_features(X_dnn_test_base, features_dnn[:], combo)
+
+        features_drop_tree = features_tree[:]
+        features_drop_dnn = features_dnn[:]
+        for f in combo:
+            if f in features_drop_tree:
+                features_drop_tree.remove(f)
+            if f in features_drop_dnn:
+                features_drop_dnn.remove(f)
 
         trained = DropFrame.DataFrame(X_tree_train, X_tree_test, y_tree_train, y_tree_test,
                                       X_dnn_train, X_dnn_test, y_dnn_train, y_dnn_test, df=df_dnn, i=i,
-                                      features=features_dnn)
+                                      features=features_drop_dnn)
 
         i += 1
 
@@ -194,11 +202,11 @@ def drop_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
         trained.tree1.shap_init()
         trained.tree1.shap.print_beeswarm(dir_name + f'/model_{i}_tree')
         trained.dnn.shap_init()
-        trained.dnn.shap.print_beeswarm(dir_name + f'/{model}_{i}_dnn')
+        trained.dnn.shap.print_beeswarm(dir_name + f'/model_{i}_dnn')
 
         if dataframe is None:
             data = {
-                'Dropped Features': [f"{error_type}{percentage}"],
+                'Dropped Features': [f"{combo}"],
                 'Tree Accuracy': [trained.metrics_tree.accuracy],
                 'Tree Precision': [trained.metrics_tree.precision],
                 'Tree Recall': [trained.metrics_tree.recall],
@@ -213,7 +221,7 @@ def drop_train(df_tree, df_dnn, target_name='Hazardous', test_size=0.15):
             dataframe = pd.DataFrame(data=data, columns=columns)
         else:
             data = {
-                'Dropped Features': f"{error_type}{percentage}",
+                'Dropped Features': f"{combo}",
                 'Tree Accuracy': trained.metrics_tree.accuracy,
                 'Tree Precision': trained.metrics_tree.precision,
                 'Tree Recall': trained.metrics_tree.recall,
@@ -250,9 +258,9 @@ def get_columns(features):
     return columns
 
 def drop_features(X, columns, columns_to_remove):
-    X = pd.DataFrame(data=X, columns=columns)
-    X = X.drop(columns_to_remove, axis=1)
-    return X.values
+    X1 = pd.DataFrame(data=X, columns=columns)
+    X1 = X1.drop(columns_to_remove, axis=1)
+    return X1.values
 
 
 def load_csvs_from_disk(base_dir='../dirty_datasets'):
