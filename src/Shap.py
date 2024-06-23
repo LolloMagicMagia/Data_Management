@@ -1,24 +1,30 @@
 import shap
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class Shap:
 
-    def __init__(self, model, x_train, x_test, features, tree, num_background_samples=100):
+    def __init__(self, model, x_train, x_test, features, tree=True, num_background_samples=100):
         self.model = model
-        self.X_test = x_test
         self.X_train = x_train
+        self.X_test = x_test
+        self.X_test = self.X_test[:250]
 
+        # Initialize explainer based on tree or kernel
         if tree:
             self.explainer = shap.TreeExplainer(self.model, self.X_train)
-            self.shap_values = self.explainer.shap_values(self.X_test)
-            self.values_true = self.shap_values[:, :, 0]
         else:
             background = shap.sample(self.X_train, num_background_samples)
-            self.explainer = shap.KernelExplainer(self.model, background)
-            self.shap_values = self.explainer.shap_values(self.X_test)
-            self.values_true = self.shap_values[:, :, 0]
+            self.explainer = shap.KernelExplainer(self.model.predict, background)
 
+        # Compute SHAP values for X_test
+        self.shap_values = self.explainer.shap_values(self.X_test)
+
+        # Extract the SHAP values for the true class (assuming this is a classification task)
+        self.values_true = self.shap_values[:, :, 0]
+
+        # Create Explanation object
         self.explanation = shap.Explanation(
             values=self.values_true,
             base_values=self.explainer.expected_value,  # Adjust according to your model and explainer

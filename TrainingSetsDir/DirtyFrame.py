@@ -24,12 +24,16 @@ class DataFrame:
         self.error_type = error_type
         self.percentage = percentage
 
+        features = df.columns.to_list()
+        if 'Hazardous' in features:
+            features.remove('Hazardous')
+
         self.tree1 = tree.Tree(df=None, X_train=X_tree_train, X_test=X_tree_test, y_train=y_tree_train,
-                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree', features=X_tree_train.columns.to_list())
+                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree', features=features)
         self.metrics_tree = self.tree1.decision_tree_training(False)
 
         self.tree2 = tree.Tree(df=None, X_train=x_tree_clean, X_test=X_tree_test, y_train=y_tree_clean,
-                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree_clean', features=x_tree_clean.columns.to_list())
+                          y_test=y_tree_test, model_name=f'{error_type}_{percentage}_tree_clean', features=features)
         self.metrics_tree_clean = self.tree2.decision_tree_training(False)
 
         self.dnn = neural.DNN(df=df, X_train=X_dnn_train, X_test=X_dnn_test, y_train=y_dnn_train,

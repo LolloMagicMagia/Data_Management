@@ -27,24 +27,26 @@ def load_dataset(file_path='../input/nasaClean.csv'):
 
 
 # Funzione per creare valori nulli
-def create_null(df, percentage=0.5, columns=[]):  # Aggiungi parametro per la percentuale di null
+def create_null(df, percentage=0.5, columns=[]):
     """
-        Riempie una colonna numerica casuale con una percentuale specificata di valori nulli (NaN).
+    Riempie una colonna numerica casuale o specificata con una percentuale specificata di valori nulli (NaN).
 
-        Args:
-            df (pd.DataFrame): Il DataFrame in cui inserire i valori nulli.
-            percentage (float): La percentuale di valori da impostare a NaN nella colonna scelta.
-            columns (list): Lista di colonne su cui operare
-        Returns:
-            pd.DataFrame: Una copia del DataFrame originale con valori nulli introdotti.
-        """
+    Args:
+        df (pd.DataFrame): Il DataFrame in cui inserire i valori nulli.
+        percentage (float): La percentuale di valori da impostare a NaN nella colonna scelta.
+        columns (list): Lista di colonne su cui operare.
 
-    n_total_values = df[columns].size
-    n_errors = int(n_total_values * percentage)
-    error_indices = np.unravel_index(np.random.choice(n_total_values, n_errors, replace=False), df[columns].shape)
-    df[columns].values[error_indices] = np.nan
-
-    return df
+    Returns:
+        pd.DataFrame: Una copia del DataFrame originale con valori nulli introdotti.
+    """
+    df_null = df.copy()
+    for col in columns:
+        if col != 'Hazardous':
+            n_total_values = len(df_null[col])
+            n_nulls = int(n_total_values * percentage)
+            null_indices = np.random.choice(df_null.index, n_nulls, replace=False)
+            df_null.loc[null_indices, col] = np.nan
+    return df_null
 
 
 def create_outliers(df, percentage=0.5):
@@ -69,104 +71,102 @@ def create_outliers(df, percentage=0.5):
     df_outliers = df.copy()
     numeric_cols = df_outliers.select_dtypes(include=[np.number]).columns
     for col in numeric_cols:
-        # Calcola quantili
-        Q1 = df_outliers[col].quantile(0.25)
-        Q3 = df_outliers[col].quantile(0.75)
-        IQR = Q3 - Q1
+        if col != 'Hazardous':
+            # Calcola quantili
+            Q1 = df_outliers[col].quantile(0.25)
+            Q3 = df_outliers[col].quantile(0.75)
+            IQR = Q3 - Q1
 
-        # Definisci limiti per gli outlier
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
+            # Definisci limiti per gli outlier
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
 
-        # Trova gli indici dei valori che non sono già outlier
-        non_outlier_indices = df_outliers[
-            (df_outliers[col] >= lower_bound) & (df_outliers[col] <= upper_bound)
-            ].index
+            # Trova gli indici dei valori che non sono già outlier
+            non_outlier_indices = df_outliers[
+                (df_outliers[col] >= lower_bound) & (df_outliers[col] <= upper_bound)
+                ].index
 
-        # Numero di outliers da inserire nella colonna
-        n_outliers_col = int(percentage * len(non_outlier_indices))
+            # Numero di outliers da inserire nella colonna
+            n_outliers_col = int(percentage * len(non_outlier_indices))
 
-        # Scegli casualmente gli indici delle righe da modificare tra quelli non outlier
-        outlier_indices = np.random.choice(non_outlier_indices, n_outliers_col, replace=False)
+            # Scegli casualmente gli indici delle righe da modificare tra quelli non outlier
+            outlier_indices = np.random.choice(non_outlier_indices, n_outliers_col, replace=False)
 
-        # Genera outliers casuali al di fuori dell'intervallo, ma entro limiti ragionevoli
-        for idx in outlier_indices:
-            if df_outliers.at[idx, col] < Q1:
-                # Se il valore originale è sotto Q1, genera un outlier più piccolo
-                if df_outliers[col].dtype == np.int64:  # Controlla il tipo di dato della colonna
-                    df_outliers.at[idx, col] = int(np.random.uniform(lower_bound, Q1))
+            # Genera outliers casuali al di fuori dell'intervallo, ma entro limiti ragionevoli
+            for idx in outlier_indices:
+                if df_outliers.at[idx, col] < Q1:
+                    # Se il valore originale è sotto Q1, genera un outlier più piccolo
+                    if df_outliers[col].dtype == np.int64:  # Controlla il tipo di dato della colonna
+                        df_outliers.at[idx, col] = int(np.random.uniform(lower_bound, Q1))
+                    else:
+                        df_outliers.at[idx, col] = np.random.uniform(lower_bound, Q1)
                 else:
-                    df_outliers.at[idx, col] = np.random.uniform(lower_bound, Q1)
-            else:
-                # Se il valore originale è sopra Q3, genera un outlier più grande
-                if df_outliers[col].dtype == np.int64:  # Controlla il tipo di dato della colonna
-                    df_outliers.at[idx, col] = int(np.random.uniform(Q3, upper_bound))
-                else:
-                    df_outliers.at[idx, col] = np.random.uniform(Q3, upper_bound)
+                    # Se il valore originale è sopra Q3, genera un outlier più grande
+                    if df_outliers[col].dtype == np.int64:  # Controlla il tipo di dato della colonna
+                        df_outliers.at[idx, col] = int(np.random.uniform(Q3, upper_bound))
+                    else:
+                        df_outliers.at[idx, col] = np.random.uniform(Q3, upper_bound)
 
     return df_outliers
 
 
 # Funzione per inserire valori inconsistenti
-def create_inconsistents(df, percentage=0.05):
+def create_inconsistents(df, percentage=0.5):
     """
-    Introduce valori inconsistenti in un DataFrame Pandas.
+    Introduce dati inconsistenti in un DataFrame Pandas.
 
-    Le inconsistenze possono essere:
-        - Valori numerici fuori scala, generati casualmente da una distribuzione uniforme.
-        - Valori di tipo errato (stringhe casuali) inseriti in colonne non numeriche.
+    I dati inconsistenti sono valori estremi e improbabili, generati al di fuori di un intervallo definito dalla media e dalla deviazione standard della colonna.
 
     Args:
-        df (pd.DataFrame): Il DataFrame in cui inserire le inconsistenze.
-        percentage (float): La percentuale di valori da rendere inconsistenti per ogni colonna.
+        df (pd.DataFrame): Il DataFrame in cui inserire i dati inconsistenti.
+        percentage (float): La percentuale di valori da trasformare in dati inconsistenti per ogni colonna numerica.
 
     Returns:
-        pd.DataFrame: Una copia del DataFrame originale con inconsistenze introdotte.
+        pd.DataFrame: Una copia del DataFrame originale con dati inconsistenti introdotti.
+
+    Note:
+        - La funzione opera solo sulle colonne numeriche del DataFrame.
+        - I dati inconsistenti vengono generati casualmente scegliendo tra valori molto piccoli o molto grandi rispetto alla media e alla deviazione standard.
+        - I valori inconsistenti vengono convertiti in interi se la colonna è di tipo int64.
     """
 
     df_inconsistents = df.copy()
-
-    # 1. Valori fuori scala (con distribuzione casuale)
     numeric_cols = df_inconsistents.select_dtypes(include=[np.number]).columns
+
     for col in numeric_cols:
-        mean_val = df_inconsistents[col].mean()
-        std_dev = df_inconsistents[col].std()
+        if col != 'Hazardous':
+            mean_val = df_inconsistents[col].mean()
+            std_dev = df_inconsistents[col].std()
 
-        # Definisci lower_bound e upper_bound FUORI dal ciclo
-        lower_bound = mean_val - 3 * std_dev
-        upper_bound = mean_val + 3 * std_dev
+            # Definisci limiti per i dati inconsistenti (molto al di fuori della distribuzione normale)
+            lower_bound = mean_val - 3 * std_dev
+            upper_bound = mean_val + 3 * std_dev
 
-        # Numero di valori inconsistenti da inserire nella colonna
-        n_inconsistents_col = int(percentage * len(df_inconsistents))
+            # Trova gli indici dei valori che non sono già inconsistenti
+            non_inconsistent_indices = df_inconsistents[
+                (df_inconsistents[col] >= lower_bound) & (df_inconsistents[col] <= upper_bound)
+            ].index
 
-        # Genera valori inconsistenti casuali fuori dall'intervallo
-        inconsistent_values = np.random.choice(
-            [
-                np.random.uniform(lower_bound / 5, lower_bound),
-                np.random.uniform(upper_bound, upper_bound * 5),
-            ],
-            n_inconsistents_col,
-        )
+            # Numero di dati inconsistenti da inserire nella colonna
+            n_inconsistents_col = int(percentage * len(non_inconsistent_indices))
 
-        # Indici casuali delle righe da modificare
-        inconsistent_row_indices = np.random.choice(df_inconsistents.index, n_inconsistents_col, replace=False)
+            # Scegli casualmente gli indici delle righe da modificare tra quelli non inconsistenti
+            inconsistent_indices = np.random.choice(non_inconsistent_indices, n_inconsistents_col, replace=False)
 
-        # Conversione a intero se la colonna è di tipo int64
-        if df_inconsistents[col].dtype == np.int64:
-            inconsistent_values = inconsistent_values.astype(int)
-
-        # Inserisci i valori inconsistenti
-        df_inconsistents.loc[inconsistent_row_indices, col] = inconsistent_values
-
-    # 2. Valori di tipo errato (stringhe casuali)
-    object_cols = df_inconsistents.select_dtypes(include=[object]).columns
-    for col in object_cols:
-        n_inconsistents_col = int(percentage * len(df_inconsistents))
-        inconsistent_values = np.random.choice(
-            ["valore_errato_1", "valore_errato_2", "valore_errato_3"], n_inconsistents_col
-        )
-        inconsistent_row_indices = np.random.choice(df_inconsistents.index, n_inconsistents_col, replace=False)
-        df_inconsistents.loc[inconsistent_row_indices, col] = inconsistent_values
+            # Genera dati inconsistenti casualmente scegliendo tra valori molto piccoli o molto grandi
+            for idx in inconsistent_indices:
+                # Scelta casuale tra valore molto piccolo o molto grande
+                choice = np.random.choice([0, 1])
+                if choice == 0:
+                    if df_inconsistents[col].dtype == np.int64:
+                        df_inconsistents.at[idx, col] = int(np.random.uniform(lower_bound / 5, lower_bound))
+                    else:
+                        df_inconsistents.at[idx, col] = np.random.uniform(lower_bound / 5, lower_bound)
+                else:
+                    if df_inconsistents[col].dtype == np.int64:
+                        df_inconsistents.at[idx, col] = int(np.random.uniform(upper_bound, upper_bound * 5))
+                    else:
+                        df_inconsistents.at[idx, col] = np.random.uniform(upper_bound, upper_bound * 5)
 
     return df_inconsistents
 

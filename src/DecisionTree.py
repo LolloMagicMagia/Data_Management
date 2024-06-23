@@ -59,6 +59,10 @@ class Tree:
 
     def decision_tree_training(self, print_info=True):
 
+        scaler = StandardScaler()
+        self.X_train = scaler.fit_transform(self.X_train)
+        self.X_test = scaler.transform(self.X_test)
+
         # ccp_alphas = potatura(X_train, y_train)
         best_tree = self.grid_search()
         best_tree_params = best_tree.best_params_

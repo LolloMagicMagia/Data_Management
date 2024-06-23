@@ -1,5 +1,6 @@
 import os
 import joblib
+import keras
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,31 +12,14 @@ from sklearn.metrics import (
     classification_report, confusion_matrix, ConfusionMatrixDisplay,
     roc_curve, roc_auc_score, make_scorer, auc
 )
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Input
 from tensorflow.keras import backend as K
 import tensorflow as tf
 
 import Shap
 import Metrics
-
-def _recall_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(tf.cast(y_true, tf.float32) * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(tf.cast(y_true, tf.float32), 0, 1)))
-    recall = true_positives / (possible_positives + K.epsilon())
-    return recall
-
-
-def _precision_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(tf.cast(y_true, tf.float32) * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    return precision
-
-
-def _f1(y_true, y_pred):
-    precision = _precision_m(y_true, y_pred)
-    recall = _recall_m(y_true, y_pred)
-    return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
-
 
 class DNN:
 
@@ -64,37 +48,71 @@ class DNN:
 
 
     def deep_neural_netw(self, print_info=True):
-        # Preparazione dei dati
+
+        scaler = StandardScaler()
+        self.X_train = scaler.fit_transform(self.X_train).astype('float32')
+        self.X_test = scaler.transform(self.X_test).astype('float32')
+
+        print('type: ', type(self.y_train))
+
         input_shape = (self.X_train.shape[1],)
         num_classes = 1  # Per una classificazione binaria
 
         # Definizione del modello
         self.model = tf.keras.Sequential([
-            tf.keras.layers.Dense(128, activation='relu', input_shape=input_shape),
+            tf.keras.layers.Dense(64, activation='relu', input_shape=input_shape),
             tf.keras.layers.Dense(64, activation='relu'),
             tf.keras.layers.Dense(num_classes, activation='sigmoid')
         ])
 
+        # Definizione della metrica F1-score personalizzata
+        @keras.saving.register_keras_serializable()
+        def f1(y_true, y_pred):
+            y_true = K.cast(y_true, 'float32')
+            y_pred = K.cast(y_pred, 'float32')
+            def recall_m(y_true, y_pred):
+                y_true = K.cast(y_true, 'float32')
+                y_pred = K.cast(y_pred, 'float32')
+                true_positives = K.sum(y_true * y_pred)
+                possible_positives = K.sum(y_true)
+                recall = true_positives / (possible_positives + K.epsilon())
+                return recall
+
+            def precision_m(y_true, y_pred):
+                y_true = K.cast(y_true, 'float32')
+                y_pred = K.cast(y_pred, 'float32')
+                true_positives = K.sum(y_true * y_pred)
+                predicted_positives = K.sum(y_pred)
+                precision = true_positives / (predicted_positives + K.epsilon())
+                return precision
+
+
+            precision = precision_m(y_true, y_pred)
+            recall = recall_m(y_true, y_pred)
+            return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
+
         # Compilazione del modello
         self.model.compile(loss='binary_crossentropy',
-                           optimizer="adam",
-                           metrics=['accuracy'])
+                      optimizer="adam",
+                      metrics=[f1])
 
         # Addestramento del modello
-        self.model.fit(self.X_train, self.y_train, epochs=10, batch_size=32, verbose=0)
+        self.model.fit(self.X_train, self.y_train, epochs=10, batch_size=64, verbose=0)
 
         # Valutazione del modello
-        self.model.evaluate(self.X_test, self.y_test)
-        y_pred = (self.model.predict(self.X_test) > 0.5).astype("int32")
+        self.model.evaluate(self.X_test, self.y_test, batch_size=64, verbose=0)
 
-        accuracy_train_test, precision, recall, f1 = self.metrics_model(y_pred)
+        predictions = (self.model.predict(self.X_test, batch_size=64, verbose=0) > 0.4).astype("int32")
+        predictions = K.cast(predictions, tf.float32)
+
+        accuracy_train_test, precision, recall, f1 = self.metrics_model(predictions)
 
         auc, fpr_dt, tpr_dt = self.roc_curve_method(self.model)
 
         self.metrics = Metrics.Metrics(accuracy_train_test, precision, recall, f1, auc)
 
         if print_info:
-            self.print_metrics(y_pred, fpr_dt, tpr_dt)
+            self.print_metrics(predictions, fpr_dt, tpr_dt)
             return
 
         return self.metrics
@@ -134,7 +152,7 @@ class DNN:
 
     def confmatrix_plot(self):
         # Prevedi le classi con il modello
-        model_pred = self.model.predict(self.X_test)
+        model_pred = self.model.predict(self.X_test, verbose=0)
         model_pred_classes = (model_pred > 0.5).astype("int32").flatten()  # Flatten per trasformarlo in una dimensione
 
         # Ottenere le classi previste uniche
@@ -149,7 +167,7 @@ class DNN:
 
     def roc_curve_method(self, model):
         # Calcola le probabilità di predizione del modello di rete neurale utilizzando predict
-        y_dt_pred_prob = model.predict(self.X_test).ravel()
+        y_dt_pred_prob = model.predict(self.X_test, batch_size=64, verbose=0).ravel()
 
         fpr_dt, tpr_dt, thresholds_dt = roc_curve(self.y_test, y_dt_pred_prob)
         auc = roc_auc_score(self.y_test, y_dt_pred_prob)
@@ -165,8 +183,8 @@ class DNN:
 
     def shap_init(self):
 
-        if not os.path.exists("models\\" + self.model_name + ".pkl"):
+        if not os.path.exists("models/" + self.model_name + ".pkl"):
             self._save_model()
 
         self.shap = Shap.Shap(joblib.load("models/" + self.model_name + ".pkl"), self.X_train, self.X_test,
-                              self.features, tree=False)
+                              self.features, tree=False, num_background_samples=20)
