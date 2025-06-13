@@ -1,105 +1,126 @@
-# DataManagement for Machine Learning: Asteroids Dataset
+# Data Management for Machine Learning – Asteroids Dataset
 
-- Biancini Mattia 865966 - `dataManagementAsteroids`
-- Gerardi Marco 869138
-- Monti Lorenzo 869960 - `Feature Engineering`
+**Data Architecture Project – University of Milano-Bicocca**  
+**Academic Year:** 2023–2024  
+**Final Grade:** 27/30
 
-## Struttura del progetto 
+Team Members:
+- Mattia Biancini – ID 865966
+- Marco Gerardi – ID 869138
+- Lorenzo Monti – ID 869960
 
-* Cartella input: contiene i file di sorgente dati e materiale relativo al dataset del progetto
-  
-* Cartella scr: contiene tutti i file di lavoro vero e proprio.
-  * train.py: lo script che si preoccuperà di addestrare il modello scelto da tune_model.py. Restituirà un modello salvato su disco in formato pickle.
-  
-  * predict.py: è lo script da chiamare per effettuare una predizione con il modello generato da train.py
-  
-  * model_selection.py: in questo script inseriremo il codice che andrà a darci un riferimento per il modello più performante per il nostro dataset.
-  
-  * tune_model.py: servirà a passare il risultato di model_selection.py alla pipeline di ottimizzazione degli iperparametri
-  
-  * utils.py: conterrà tutte le nostre funzioni helper che ci serviranno durante il progetto
+---
 
-* Cartella models: contiene i modelli che salveremo restituiti da train.py in formato pickle.
-  
-* Cartella notebooks: è "l'ambiente di esplorazione" dove risiedono tutti notebook .ipynb.
+## Overview
 
+This project focuses on **data quality assessment**, **preprocessing**, and **feature impact analysis** in the context of a Machine Learning task based on a dataset of Near-Earth Objects (asteroids), provided by [NASA's NEOWS API](https://api.nasa.gov/).
 
-## Il dataset
+The primary objectives were:
 
-Il dataset riguarda gli asteroidi ed è fornito da NEOWS (Near-Earth Object Web Service).
+- Data cleaning and Principal Component Analysis (PCA)
+- Training ML models and evaluating performance using F1 Score
+- Artificially "corrupting" the dataset to simulate poor data quality
+- Comparing clean vs. corrupted datasets to assess the impact of specific features
+- Understanding feature importance from the model’s perspective
 
-#### Panoramica del dataset
+---
 
-- **Numero di istanze:** 4687
-- **Numero di features:** 40
-- **Valori nulli:** Nessuno
+## Project Structure
 
-#### Descrizione di alcune features
+- **`input/`** – Contains raw and intermediate datasets
+- **`models/`** – Stores trained models serialized with `pickle`
+- **`notebooks/`** – Jupyter notebooks used for exploration, EDA, and testing
+- **`src/`** – Core Python scripts
+  - `train.py` – Trains the model selected and saves it
+  - `predict.py` – Loads a trained model and makes predictions
+  - `model_selection.py` – Identifies the best performing model
+  - `tune_model.py` – Hyperparameter optimization pipeline
+  - `utils.py` – Helper functions for preprocessing, validation, etc.
 
-- **Neo Reference ID:** ID di riferimento assegnato a un asteroide.
-- **Name:** Nome dato a un asteroide.
-- **Absolute Magnitude:** Magnitudine assoluta di un asteroide, ovvero la magnitudine visiva che un osservatore registrerebbe se l'asteroide fosse posto a 1 Unità Astronomica (UA) di distanza dalla Terra e dal Sole e a un angolo di fase zero.
-- **Est Dia in KM(min):** Diametro stimato dell'asteroide in chilometri (KM).
-- **Est Dia in M(min):** Diametro stimato dell'asteroide in metri (M).
-- **Relative Velocity km per sec:** Velocità relativa dell'asteroide in chilometri al secondo.
-- **Relative Velocity km per hr:** Velocità relativa dell'asteroide in chilometri all'ora.
-- **Orbiting Body:** Pianeta attorno al quale l'asteroide sta ruotando.
-- **Jupiter Tisserand Invariant:** Parametro di Tisserand per l'asteroide, un valore calcolato da diversi elementi orbitali (semiasse maggiore, eccentricità orbitale e inclinazione) di un oggetto relativamente piccolo e un 'corpo perturbatore' più sostanziale. Viene utilizzato per distinguere diversi tipi di orbite.
-- **Eccentricity:** Valore di eccentricità dell'orbita dell'asteroide.
-- **Semi Major Axis:** Valore del semiasse maggiore dell'orbita dell'asteroide.
-- **Orbital Period:** Valore del periodo orbitale dell'asteroide, ovvero il tempo impiegato dall'asteroide per compiere una rivoluzione completa attorno al suo corpo orbitante.
-- **Perihelion Distance:** Valore della distanza del perielio dell'asteroide. Per un corpo in orbita attorno al Sole, il punto di minima distanza è il perielio.
-- **Aphelion Dist:** Valore della distanza dell'afelio dell'asteroide. Per un corpo in orbita attorno al Sole, il punto di massima distanza è l'afelio.
-- **Hazardous:** Indica se l'asteroide è pericoloso o meno.
+---
 
-## Fasi del progetto 
+## Dataset Information
 
+The dataset is related to asteroids and contains orbital and physical parameters.
 
-**1. Definizione del Problema e Obiettivi:**
+- **Instances:** 4687
+- **Features:** 40
+- **Missing values:** None (in original dataset)
 
-*   **Comprensione del problema:** Cosa si vuole ottenere con il machine learning? Si tratta di classificazione, regressione, clustering, o altro?
-*   **Definizione degli obiettivi:** Quali sono le metriche di successo? Ad esempio, accuratezza, precisione, recall, errore quadratico medio, ecc.
+🔗 **Original ML Project using this dataset:**  
+[Link to ML Project Repository](https://github.com/LolloMagicMagia/ML-Laboratory)
 
-**2. Raccolta e Preparazione dei Dati:**
+---
 
-*   **Raccolta dati** 
-  
-*   **Pulizia dei dati:** Gestire valori mancanti, outlier, duplicati.
-*   **Analisi Esplorativa dei Dati (EDA):**
-    *   Visualizzazione dei dati (istogrammi, scatter plot, box plot) per comprenderne la distribuzione, relazioni e anomalie.
-    *   Calcolo di statistiche descrittive (media, mediana, deviazione standard) per riassumere le caratteristiche dei dati.
-    *   Identificazione di pattern, correlazioni e tendenze nei dati.
-*   **Feature Engineering:**
-    *   PCA (Principal Component Analysis)
-    *   Creazione di nuove feature significative a partire da quelle esistenti (es. combinazioni, trasformazioni, estrazioni).
-    *   Normalizzazione o standardizzazione delle feature per migliorarne la compatibilità con gli algoritmi.
+## Feature Examples
 
-**3. Scelta e Addestramento del Modello:**
+- `Neo Reference ID`: Unique asteroid identifier
+- `Absolute Magnitude`: Intrinsic brightness
+- `Estimated Diameter (km/m)`: Physical size of the object
+- `Relative Velocity`: In km/s or km/h
+- `Jupiter Tisserand Invariant`: Orbital dynamic parameter
+- `Eccentricity`, `Semi-Major Axis`, `Orbital Period`
+- `Hazardous`: Boolean classification label
 
-*   **Scelta del modello:** In base al tipo di problema, agli obiettivi e ai dati, selezionare l'algoritmo più adatto (es. regressione lineare, alberi decisionali, reti neurali, SVM).
-*   **Divisione dei dati:** Separare i dati in un set di addestramento (per costruire il modello) e un set di test (per valutarlo).
-*   **Addestramento del modello:** Utilizzare il set di addestramento per far apprendere al modello i pattern e le relazioni nei dati.
-*   **Validazione del modello:** Utilizzare tecniche come la cross-validation per valutare le prestazioni del modello durante l'addestramento e prevenire l'overfitting.
-*   **Ottimizzazione degli iperparametri:** Regolare i parametri del modello (es. tasso di apprendimento, numero di strati in una rete neurale) per migliorarne le prestazioni.
+---
 
-**4. Valutazione del Modello:**
+## Project Phases
 
-*   **Valutazione delle prestazioni:** Utilizzare il set di test per valutare le prestazioni del modello su dati non visti durante l'addestramento.
-*   **Confronto con baseline:** Confrontare le prestazioni del modello con modelli più semplici o con risultati ottenuti in precedenza.
-*   **Analisi degli errori:** Esaminare i tipi di errori commessi dal modello per identificare aree di miglioramento.
+### 1. **Problem Definition & Goals**
+- Binary classification: Predict whether an asteroid is hazardous
+- Evaluation metric: **F1 Score** (due to class imbalance)
 
-**5. Implementazione e Monitoraggio del Modello:**
+### 2. **Data Collection and Cleaning**
+- Loaded data from NEOWS
+- Removed irrelevant or redundant features
+- Checked for duplicates, consistency, and logical errors
 
-*   **Implementazione in produzione:** Integrare il modello in un sistema reale per fare previsioni o prendere decisioni.
-*   **Monitoraggio delle prestazioni:** Continuare a valutare le prestazioni del modello nel tempo e aggiornarlo se necessario.
-*   **Raccolta di feedback:** Raccogliere feedback dagli utenti per migliorare il modello e adattarlo a nuovi dati o scenari.
+### 3. **Exploratory Data Analysis (EDA)**
+- Visualizations: Histograms, boxplots, scatterplots
+- Correlation matrix
+- Descriptive statistics: mean, median, variance
 
-### Fasi del progetto (Tia)
-1) PCA e pulizia del Dataset
-2) Addestrare i modelli e vedere le performance
-3) Sporcare il Dataset con valori nulli, outliers, valori inconsistenti fuori dalla distribuzione (Violazione 4 principi di Data Quality)
-    1) Riempire una o più feature con valori 100% mancanti o dropparla direttamente
-    2) Inconsistenza usando i quartili come valori nuovi
-4) Addestrare gli stessi modelli sporcati e vedere le performance
-5) Confrontare modelli puliti e sporchi (sottolineando quanto la Data Quality influisca)
-6) Conclusione
+### 4. **Feature Engineering**
+- **Principal Component Analysis (PCA)**: Reduced dimensionality
+- Created meaningful derived features
+- Standardization and normalization applied where necessary
+
+### 5. **Model Training (Clean Dataset)**
+- Trained various models (e.g., Random Forest, SVM, Logistic Regression)
+- Performed cross-validation
+- Evaluated using F1 Score
+
+### 6. **Data Corruption and Degradation**
+Simulated violations of **Data Quality Principles**:
+
+- Injected missing values (100% in one or more features)
+- Introduced outliers and inconsistent values based on IQRs
+- Deleted features entirely to simulate information loss
+
+### 7. **Model Training (Corrupted Dataset)**
+- Retrained the same models using degraded data
+- Measured performance drop using F1 Score
+
+### 8. **Comparison and Interpretation**
+- Quantitative comparison between clean and corrupted model performances
+- Identified most impactful features based on how their corruption degraded results
+- Highlighted the **critical role of data quality** in model accuracy and reliability
+
+---
+
+## Key Takeaways
+
+- PCA helped simplify the dataset without significant loss of information
+- Certain features were shown to be **highly influential** on the model’s outcome
+- Data degradation clearly highlighted the **sensitivity of ML models** to input quality
+- F1 Score proved effective in assessing performance with unbalanced classes
+
+---
+
+## Conclusion
+
+This project emphasizes the crucial importance of **data preprocessing and quality** in any machine learning pipeline. Through a controlled experiment involving both clean and manipulated data, we quantified how different types of degradation influence model performance and drew conclusions about which features are most valuable for predicting asteroid hazards.
+
+---
+
+📘 *Full project documentation and code are available in the repository.*
