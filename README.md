@@ -9,6 +9,7 @@ Team Members:
 - Marco Gerardi – ID 869138
 - Lorenzo Monti – ID 869960
 
+📓 [Source of the dataset](https://www.kaggle.com/datasets/shrutimehta/nasa-asteroids-classification)
 ---
 
 ## Overview
