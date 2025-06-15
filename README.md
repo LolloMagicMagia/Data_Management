@@ -8,8 +8,6 @@ Team Members:
 - Mattia Biancini – ID 865966
 - Marco Gerardi – ID 869138
 - Lorenzo Monti – ID 869960
-
-📓 [Source of the dataset](https://www.kaggle.com/datasets/shrutimehta/nasa-asteroids-classification)
 ---
 
 ## Overview
@@ -50,6 +48,8 @@ The dataset is related to asteroids and contains orbital and physical parameters
 
 🔗 **Original ML Project using this dataset:**  
 [Link to ML Project Repository](https://github.com/LolloMagicMagia/ML-Laboratory)
+
+📓 [Source of the dataset](https://www.kaggle.com/datasets/shrutimehta/nasa-asteroids-classification)
 
 ---
 
